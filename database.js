@@ -1,7 +1,10 @@
 import mariadb from 'mariadb';
+import dotenv from 'dotenv';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+dotenv.config({ path: process.env.DOGGYFEED_ENV_FILE || '/etc/doggyfeed/doggyfeed.env' });
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const legacyStateFile = path.join(root, 'data', 'state.json');
