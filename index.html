@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f5f5ef">
+  <meta name="theme-color" content="#eaf3fb">
   <title>DoggyFeed | Meal planner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,6 +21,25 @@
     @media(max-width:980px){.app-shell{grid-template-columns:190px minmax(0,1fr)}.sidebar{padding-left:15px}.planner-grid{grid-template-columns:minmax(0,1fr) 280px}.meal-body{padding:0 15px}.meal-labels,.meal-row{grid-template-columns:minmax(100px,1.3fr) 60px 55px 65px 25px;gap:6px}.quantity{width:58px}.below-grid{grid-template-columns:1fr}.saved-plan-bar{grid-template-columns:minmax(90px,.8fr) minmax(100px,1fr) auto minmax(100px,1fr) auto auto;padding:12px 15px}}
     @media(max-width:760px){.app-shell{display:block}.sidebar{height:auto;border-right:0;border-bottom:1px solid var(--line);padding:12px 18px;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:10px}.brand{padding:0}.brand-mark{width:34px;height:34px}.brand-name{font-size:18px}.brand small,.nav-label,.sidebar-note{display:none}.nav{display:flex;gap:3px}.nav button{font-size:11px;padding:9px 10px;gap:6px}.nav-symbol{display:none}.topbar{height:58px;padding:0 18px}.top-context{font-size:10px}.today{display:none}.page{padding:26px 18px 45px}.planner-grid{grid-template-columns:1fr}.summary-panel{order:-1}.summary-hero{min-height:172px}.page-head{align-items:flex-start}.page-head .button{padding:10px 11px;font-size:11px}.food-table th,.food-table td{padding:11px 9px}.food-table th:nth-child(4),.food-table td:nth-child(4){display:none}.toolbar{flex-wrap:wrap}.search{max-width:none}.count{width:100%;margin-left:0}.meal-labels,.meal-row{grid-template-columns:minmax(90px,1.2fr) 55px 52px 55px 23px;gap:5px}.meal-body{padding:0 10px}.add-food-row{padding:13px 10px}.unit-note{display:none}.saved-plan-bar{grid-template-columns:minmax(100px,1fr) minmax(120px,1.2fr) auto;padding:11px 10px}}
     @media(max-width:420px){.nav button{padding:8px 7px;font-size:10px}.top-context{max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.select-dog{max-width:155px;padding-left:8px}.page{padding-left:13px;padding-right:13px}.meal-labels,.meal-row{grid-template-columns:minmax(78px,1fr) 52px 44px 48px 20px;gap:4px}.meal-labels{font-size:8px}.quantity{width:50px}.number-cell{font-size:10px}.food-table td:nth-child(3),.food-table th:nth-child(3){display:none}.saved-plan-bar{grid-template-columns:1fr 1fr auto auto}.saved-plan-bar label{grid-column:1/-1}.saved-plan-bar input{grid-column:1/-1}.saved-plan-bar .button{padding:8px 7px;font-size:10px}}
+    :root{color:#172f4d;background:#f2f7fc;--ink:#172f4d;--muted:#647891;--line:#d8e4f0;--paper:#fff;--canvas:#f2f7fc;--green:#173e68;--green-soft:#e2effa;--lime:#c7e5fb;--coral:#548fc4;--coral-soft:#e7f2fb;--shadow:0 18px 50px #18395712}
+    body{background:var(--canvas);color:var(--ink)}
+    .sidebar,.topbar{background:#eaf3fb}
+    .nav button:hover{background:#dcebf7}
+    .page .eyebrow{color:#4c7da8}
+    .page h1{color:#172f4d}
+    button:focus-visible,input:focus-visible,select:focus-visible{outline-color:#6da6d5}
+    .button:hover{background:#102f53}
+    .button.secondary:hover,.icon-button:hover{background:#edf5fb}
+    .panel{border-color:#e2ebf4;box-shadow:0 4px 18px #18395708}
+    .summary-hero{background:#173e68 url('https://images.unsplash.com/photo-1786819678835-f7122c83fdf1?auto=format&fit=crop&w=1200&q=85') center 44%/cover}
+    .summary-hero:before{background:linear-gradient(90deg,#102e50ed 0%,#173e68bb 58%,#173e6830 100%)}
+    .food-table th{background:#edf4fa;color:#647891}
+    .food-table tr:hover td{background:#f7fbfe}
+    .category{background:#e5f1fb;color:#3b648a}
+    .notice{background:#e7f1f9;color:#4f6881}
+    .disclaimer{background:#f0f6fb;color:#647891}
+    .saved-plan-bar{background:#f5f9fd}
+    .number-cell{color:#405c78}
   </style>
 </head>
 <body>
