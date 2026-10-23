@@ -1,13 +1,12 @@
-const http = require('node:http');
-const { readFile, mkdir, rename, writeFile } = require('node:fs/promises');
-const path = require('node:path');
-const { fileURLToPath } = require('node:url');
+import http from 'node:http';
+import { readFile, mkdir, rename, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const dataDirectory = path.join(root, 'data');
 const stateFile = path.join(dataDirectory, 'state.json');
 const maxBodyBytes = 20 * 1024 * 1024;
-const emptyState = { dogs: [], foods: [], meals: {}, savedPlans: [], selectedDog: '' };
 
 function sendJson(response, statusCode, value) {
   response.writeHead(statusCode, {
