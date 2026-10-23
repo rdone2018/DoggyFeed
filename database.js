@@ -233,6 +233,53 @@ export function writeState(state) {
   return write;
 }
 
+export async function readDatabaseDiagnostics() {
+  const connection = await pool.getConnection();
+  try {
+    const [{ databaseName }] = await connection.query('SELECT DATABASE() AS databaseName');
+    const tableRows = await connection.query(
+      `SELECT TABLE_NAME AS tableName
+       FROM information_schema.TABLES
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'
+       ORDER BY TABLE_NAME`
+    );
+    const tables = [];
+
+    for (const { tableName } of tableRows) {
+      const identifier = `\`${tableName.replaceAll('`', '``')}\``;
+      const columns = await connection.query(
+        `SELECT COLUMN_NAME AS columnName
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
+         ORDER BY ORDINAL_POSITION`,
+        [tableName]
+      );
+      const [{ rowCount }] = await connection.query(`SELECT COUNT(*) AS rowCount FROM ${identifier}`);
+      const rows = await connection.query(`SELECT * FROM ${identifier} ORDER BY 1`);
+      tables.push({
+        name: tableName,
+        rowCount: Number(rowCount),
+        columns: columns.map(column => column.columnName),
+        rows: rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => {
+          if (key === 'image' && typeof value === 'string' && value.startsWith('data:image/')) {
+            return [key, {
+              type: 'image',
+              preview: value,
+              sizeBytes: Buffer.byteLength(value, 'utf8')
+            }];
+          }
+          if (Buffer.isBuffer(value)) return [key, { type: 'binary', sizeBytes: value.length }];
+          return [key, value];
+        })))
+      });
+    }
+
+    return { databaseName, tables };
+  } finally {
+    connection.release();
+  }
+}
+
 export async function closeDatabase() {
   await pool.end();
 }

@@ -2,7 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { closeDatabase, initializeDatabase, readState, writeState } from './database.js';
+import { closeDatabase, initializeDatabase, readDatabaseDiagnostics, readState, writeState } from './database.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const maxBodyBytes = 20 * 1024 * 1024;
@@ -14,6 +14,10 @@ function sendJson(response, statusCode, value) {
     'X-Content-Type-Options': 'nosniff'
   });
   response.end(JSON.stringify(value));
+}
+
+function isLoopbackRequest(request) {
+  return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(request.socket.remoteAddress);
 }
 
 function readRequestJson(request) {
@@ -61,6 +65,38 @@ const server = http.createServer(async (request, response) => {
   const pathname = new URL(request.url, 'http://localhost').pathname;
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Referrer-Policy', 'no-referrer');
+
+  if ((pathname === '/diagnostics' || pathname === '/api/diagnostics') && !isLoopbackRequest(request)) {
+    sendJson(response, 403, { error: 'Database diagnostics are available only from this computer.' });
+    return;
+  }
+
+  if (pathname === '/api/diagnostics' && request.method === 'GET') {
+    try {
+      sendJson(response, 200, await readDatabaseDiagnostics());
+    } catch (error) {
+      console.error('Unable to read database diagnostics:', error);
+      sendJson(response, 500, { error: 'Unable to read database diagnostics.' });
+    }
+    return;
+  }
+
+  if (pathname === '/diagnostics' && request.method === 'GET') {
+    try {
+      const html = await readFile(path.join(root, 'diagnostics.html'));
+      response.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      response.end(html);
+    } catch (error) {
+      console.error('Unable to serve database diagnostics:', error);
+      response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      response.end('Unable to serve database diagnostics.');
+    }
+    return;
+  }
 
   if (pathname === '/api/state' && request.method === 'GET') {
     try {
