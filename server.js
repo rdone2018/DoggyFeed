@@ -1,11 +1,11 @@
 import http from 'node:http';
-import { readFile, mkdir, rename, writeFile } from 'node:fs/promises';
+import 'dotenv/config';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { closeDatabase, initializeDatabase, readState, writeState } from './database.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const dataDirectory = path.join(root, 'data');
-const stateFile = path.join(dataDirectory, 'state.json');
 const maxBodyBytes = 20 * 1024 * 1024;
 
 function sendJson(response, statusCode, value) {
@@ -15,15 +15,6 @@ function sendJson(response, statusCode, value) {
     'X-Content-Type-Options': 'nosniff'
   });
   response.end(JSON.stringify(value));
-}
-
-async function readState() {
-  try {
-    return JSON.parse(await readFile(stateFile, 'utf8'));
-  } catch (error) {
-    if (error.code === 'ENOENT') return null;
-    throw error;
-  }
 }
 
 function readRequestJson(request) {
@@ -65,13 +56,6 @@ function isValidState(state) {
     Array.isArray(state.foods) &&
     state.meals && typeof state.meals === 'object' && !Array.isArray(state.meals) &&
     Array.isArray(state.savedPlans);
-}
-
-async function writeState(state) {
-  await mkdir(dataDirectory, { recursive: true });
-  const temporaryFile = `${stateFile}.tmp`;
-  await writeFile(temporaryFile, JSON.stringify(state), 'utf8');
-  await rename(temporaryFile, stateFile);
 }
 
 const server = http.createServer(async (request, response) => {
@@ -129,6 +113,19 @@ const server = http.createServer(async (request, response) => {
 
 const port = Number(process.env.PORT) || 3000;
 const host = process.env.HOST || '127.0.0.1';
-server.listen(port, host, () => {
-  console.log(`DoggyFeed is running at http://${host}:${port}`);
-});
+
+async function startServer() {
+  try {
+    await initializeDatabase();
+    server.listen(port, host, () => {
+      console.log(`DoggyFeed is running at http://${host}:${port}`);
+    });
+  } catch (error) {
+    console.error('Unable to start DoggyFeed. Check the MariaDB service and database settings.');
+    console.error(error.message);
+    await closeDatabase().catch(() => {});
+    process.exitCode = 1;
+  }
+}
+
+startServer();
