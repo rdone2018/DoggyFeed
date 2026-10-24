@@ -61,6 +61,14 @@
   <div id="modal-root"></div><div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <script>
     (()=>{
+      if (typeof crypto !== 'undefined' && !crypto.randomUUID) {
+        crypto.randomUUID = function () {
+          return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
+            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+          );
+        };
+      }
+
       const KEY='doggyfeed-data-v1';
       const starter={dogs:[{id:'dog-milo',name:'Milo',weight:12.4,activity:1.6,age:'Adult',breed:'Mixed breed'},{id:'dog-luna',name:'Luna',weight:7.8,activity:1.4,age:'Senior',breed:'Cocker spaniel'}],foods:[{id:'food-kibble',name:'Chicken kibble',category:'Dry food',kcal:380,protein:26,fat:15,fiber:4},{id:'food-turkey',name:'Turkey, cooked',category:'Protein',kcal:189,protein:29,fat:7,fiber:0},{id:'food-pumpkin',name:'Pumpkin, plain',category:'Produce',kcal:34,protein:1,fat:0.1,fiber:2.9},{id:'food-yogurt',name:'Plain yogurt',category:'Dairy',kcal:61,protein:3.5,fat:3.3,fiber:0},{id:'food-wet',name:'Beef wet food',category:'Wet food',kcal:112,protein:10,fat:6,fiber:0.5},{id:'food-blueberry',name:'Blueberries',category:'Produce',kcal:57,protein:0.7,fat:0.3,fiber:2.4}],meals:{'dog-milo':[],'dog-luna':[]},selectedDog:'dog-milo'};
       let localData;try{localData=JSON.parse(localStorage.getItem(KEY))}catch{localData=null}
