@@ -8,7 +8,7 @@ dotenv.config({ path: process.env.DOGGYFEED_ENV_FILE || '/etc/doggyfeed/doggyfee
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const legacyStateFile = path.join(root, 'data', 'state.json');
-const pool = mariadb.createPool({
+export const pool = mariadb.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: Number(process.env.DB_PORT) || 3306,
   database: process.env.DB_NAME || 'doggyfeed',
@@ -17,6 +17,10 @@ const pool = mariadb.createPool({
   connectionLimit: 5,
   decimalAsNumber: true
 });
+
+export async function getConnection() {
+  return pool.getConnection();
+}
 
 const schema = [
   `CREATE TABLE IF NOT EXISTS app_settings (
@@ -75,8 +79,8 @@ function validState(state) {
     Array.isArray(state.savedPlans);
 }
 
-async function replaceState(state) {
-  const connection = await pool.getConnection();
+export async function replaceState(state) {
+  const connection = await getConnection();
   try {
     await connection.beginTransaction();
     await connection.query('DELETE FROM saved_plan_items');
@@ -159,7 +163,7 @@ export async function initializeDatabase() {
     throw new Error('DB_PASSWORD must be set in the environment or .env file.');
   }
 
-  const connection = await pool.getConnection();
+  const connection = await getConnection();
   try {
     for (const statement of schema) await connection.query(statement);
     const rows = await connection.query(
@@ -180,7 +184,7 @@ export async function initializeDatabase() {
 }
 
 export async function readState() {
-  const connection = await pool.getConnection();
+  const connection = await getConnection();
   try {
     const [dogs, foods, mealRows, plans, planRows, settings] = await Promise.all([
       connection.query('SELECT * FROM dogs ORDER BY name'),
@@ -235,7 +239,7 @@ export function writeState(state) {
 }
 
 export async function readDatabaseDiagnostics() {
-  const connection = await pool.getConnection();
+  const connection = await getConnection();
   try {
     const [{ databaseName }] = await connection.query('SELECT DATABASE() AS databaseName');
     const tableRows = await connection.query(
