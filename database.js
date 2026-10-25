@@ -32,7 +32,8 @@ const schema = [
     breed VARCHAR(120) NULL,
     gender VARCHAR(20) NULL,
     heat1 VARCHAR(10) NULL,
-    heat2 VARCHAR(10) NULL
+    heat2 VARCHAR(10) NULL,
+    photo LONGTEXT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS foods (
     id VARCHAR(80) NOT NULL PRIMARY KEY,
@@ -87,10 +88,10 @@ async function replaceState(state) {
 
     for (const dog of state.dogs) {
       await connection.query(
-        `INSERT INTO dogs (id, name, weight, activity, life_stage, breed, gender, heat1, heat2)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO dogs (id, name, weight, activity, life_stage, breed, gender, heat1, heat2, photo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [dog.id, dog.name, Number(dog.weight) || 0, Number(dog.activity) || 1.6,
-          dog.age || 'Adult', dog.breed || null, dog.gender || null, dog.heat1 || null, dog.heat2 || null]
+          dog.age || 'Adult', dog.breed || null, dog.gender || null, dog.heat1 || null, dog.heat2 || null, dog.photo || null]
       );
     }
 
@@ -208,7 +209,7 @@ export async function readState() {
       dogs: dogs.map(dog => ({
         id: dog.id, name: dog.name, weight: Number(dog.weight), activity: Number(dog.activity),
         age: dog.life_stage, breed: dog.breed || '', gender: dog.gender || '',
-        heat1: dog.heat1 || '', heat2: dog.heat2 || ''
+        heat1: dog.heat1 || '', heat2: dog.heat2 || '', photo: dog.photo || ''
       })),
       foods: foods.map(food => ({
         id: food.id, name: food.name, category: food.category, kcal: Number(food.kcal),
@@ -283,3 +284,4 @@ export async function readDatabaseDiagnostics() {
 export async function closeDatabase() {
   await pool.end();
 }
+
