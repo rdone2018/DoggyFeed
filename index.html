@@ -44,6 +44,47 @@
     .disclaimer{background:#f0f6fb;color:#647891}
     .saved-plan-bar{background:#f5f9fd}
     .number-cell{color:#405c78}
+    /* Multi-dog grid styles */
+    .multi-dog-grid{grid-template-columns:minmax(0,1.65fr) minmax(260px,.8fr)}
+    .meal-panels-container{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+    .meal-panels-container .dog-column{display:block}
+    .panel{background:var(--paper);border:1px solid #e8ebe4;border-radius:9px;box-shadow:0 4px 18px #26382b08}.meal-panel{overflow:hidden}.panel-heading{padding:20px 22px 16px;border-bottom:1px solid #edf0ea;display:flex;justify-content:space-between;align-items:center;gap:12px}.panel-heading h2{font:500 19px 'Fraunces',Georgia,serif;margin:0}.panel-heading p{color:var(--muted);font-size:11px;margin:5px 0 0}.meal-body{padding:0 22px}.meal-labels,.meal-row{display:grid;grid-template-columns:minmax(120px,1.5fr) 70px 72px 80px 32px;gap:10px;align-items:center}.meal-labels{padding:14px 0 9px;color:#8a948a;font-size:9px;letter-spacing:.7px;text-transform:uppercase;font-weight:700}.meal-row{padding:12px 0;border-top:1px solid #eff1eb;min-height:60px}.food-name{font-weight:600;font-size:12px;line-height:1.3}.food-meta{font-size:10px;color:var(--muted);margin-top:4px}.quantity{width:66px;padding:7px 5px;text-align:center;border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--ink)}.number-cell{font-size:11px;font-variant-numeric:tabular-nums;color:#4d594e}.remove{border:0;background:none;color:#a2aaa0;font-size:18px}.remove:hover{color:#b54f3e}.meal-empty{padding:42px 12px;text-align:center;color:var(--muted);font-size:12px}.meal-empty strong{display:block;color:var(--ink);font-size:14px;margin-bottom:6px}.add-food-row{border-top:1px solid #edf0ea;padding:15px 22px;display:flex;align-items:center;gap:9px}.add-food-row select{max-width:270px;flex:1;border:1px solid var(--line);border-radius:7px;padding:9px 10px;color:var(--ink);background:#fff;font-size:11px}.unit-note{margin-left:auto;color:#929b91;font-size:10px}
+    .summary-panel{overflow:hidden}.summary-hero{position:relative;min-height:200px;padding:20px;color:white;isolation:isolate;background:#315b47 url('https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=900&q=85') center 44%/cover}.summary-hero:before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#183a2de8 0%,#1e412fb8 58%,#19372f36 100%);z-index:-1}.summary-hero .eyebrow{color:var(--lime);margin-bottom:6px}.summary-hero h2{font:500 23px 'Fraunces',Georgia,serif;margin:0 0 16px}.energy-line{display:flex;align-items:baseline;gap:6px}.energy-number{font-size:31px;font-weight:600;letter-spacing:0}.energy-unit{font-size:11px;color:#ffffffbc}.energy-track{height:5px;background:#ffffff48;border-radius:5px;margin:12px 0 7px;overflow:hidden}.energy-fill{height:100%;width:0;background:var(--lime);border-radius:5px;transition:width .35s}.energy-caption{font-size:10px;color:#ffffffc9}.summary-stats{padding:5px 20px}.stat{padding:13px 0;border-bottom:1px solid #edf0ea;display:flex;align-items:center;justify-content:space-between}.stat:last-child{border-bottom:0}.stat-label{font-size:11px;color:var(--muted)}.stat-value{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}.stat-value small{font-weight:400;color:var(--muted)}.disclaimer{padding:12px 15px;margin:0 16px 17px;border-radius:6px;background:#f4f5ed;color:#7d8577;font-size:10px;line-height:1.55}.below-grid{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:18px}.quick-card{padding:17px 19px;display:flex;gap:13px;align-items:center}.quick-icon{width:37px;height:37px;flex:none;border-radius:10px;background:var(--green-soft);display:grid;place-items:center;color:var(--green);font-size:17px}.quick-card h3{font-size:12px;margin:0 0 4px}.quick-card p{font-size:10px;color:var(--muted);margin:0}.quick-card .button{margin-left:auto;flex:none}
+    .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px}.search{flex:1;max-width:350px;border:1px solid var(--line);background:white;border-radius:7px;padding:10px 12px;font-size:12px}.count{font-size:11px;color:var(--muted);margin-left:auto}.table-panel{overflow:hidden}.food-table{width:100%;border-collapse:collapse;text-align:left}.food-table th{background:#f8f9f5;color:#858e84;font-size:9px;letter-spacing:.7px;text-transform:uppercase;padding:12px 17px}.food-table td{padding:13px 17px;border-top:1px solid #edf0ea;font-size:11px}.food-table tr:hover td{background:#fcfcf9}.food-table td:first-child{font-weight:700;font-size:12px}.food-table .values{color:#627064;font-variant-numeric:tabular-nums}.category{display:inline-block;padding:4px 7px;background:#eef3ea;color:#52644e;border-radius:4px;font-size:9px}.row-actions{display:flex;justify-content:flex-end;gap:6px}.dog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}.dog-card{padding:18px;border:1px solid var(--line);border-radius:8px;background:#fff;animation:rise .3s both}.dog-card-top{display:flex;justify-content:space-between;align-items:flex-start}.dog-avatar{width:42px;height:42px;border-radius:13px;background:var(--coral-soft);display:grid;place-items:center;font-size:20px}.dog-card h2{font:500 20px 'Fraunces',Georgia,serif;margin:14px 0 4px}.dog-detail{font-size:11px;color:var(--muted)}.dog-energy{border-top:1px solid #edf0ea;margin-top:15px;padding-top:12px;display:flex;justify-content:space-between;font-size:10px;color:var(--muted)}.dog-energy strong{font-size:11px;color:var(--ink)}.dog-actions{display:flex;gap:7px;margin-top:15px}.dog-actions .button{flex:1}.notice{padding:12px 14px;border-radius:7px;background:#f0f3e9;color:#657454;font-size:11px;line-height:1.6;margin-top:17px}
+    .modal-backdrop{position:fixed;inset:0;background:#19251eb8;display:grid;place-items:center;padding:20px;z-index:10;animation:fade .16s}.modal{width:min(440px,100%);max-height:calc(100vh - 40px);overflow:auto;background:#fff;border-radius:10px;box-shadow:var(--shadow);padding:23px;animation:rise .2s}.modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:17px}.modal h2{font:500 23px 'Fraunces',Georgia,serif;margin:0}.modal-head p{font-size:11px;color:var(--muted);margin:6px 0 0}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:grid;gap:6px}.field.full{grid-column:1/-1}.field label{font-size:10px;font-weight:700;color:#5e695e}.field input,.field select{width:100%;border:1px solid var(--line);border-radius:6px;padding:10px;font-size:12px;color:var(--ink);background:#fff}.form-help{font-size:10px;color:var(--muted);line-height:1.5;margin:12px 0}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.toast{position:fixed;right:22px;bottom:20px;background:var(--ink);color:#fff;padding:11px 16px;border-radius:7px;font-size:12px;box-shadow:var(--shadow);z-index:20;animation:rise .2s}.hidden{display:none!important}@keyframes rise{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}@keyframes fade{from{opacity:0}to{opacity:1}}
+    .food-cell{display:flex;align-items:center;gap:10px}.food-thumb,.food-thumb-placeholder{width:42px;height:42px;flex:none;border-radius:6px;object-fit:cover;background:#eaf3fb}.food-image-preview{min-height:116px;border:1px dashed var(--line);border-radius:7px;background:#f7fbfe;display:grid;place-items:center;overflow:hidden;color:var(--muted);font-size:11px}.food-image-preview img{display:block;width:100%;max-height:180px;object-fit:contain}.remove-image{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:10px;font-weight:500!important}.remove-image input{width:auto!important}
+    .saved-plan-bar{padding:13px 22px;border-bottom:1px solid #edf0ea;display:grid;grid-template-columns:minmax(120px,1fr) minmax(130px,1.2fr) auto auto auto;gap:8px;align-items:center;background:#fbfcf9}.saved-plan-bar label{font-size:10px;font-weight:700;color:#687368}.saved-plan-bar input,.saved-plan-bar select{min-width:0;border:1px solid var(--line);border-radius:6px;background:#fff;padding:9px 10px;font-size:11px;color:var(--ink)}
+    @media(max-width:980px){.app-shell{grid-template-columns:190px minmax(0,1fr)}.sidebar{padding-left:15px}.planner-grid{grid-template-columns:minmax(0,1fr) 280px}.meal-body{padding:0 15px}.meal-labels,.meal-row{grid-template-columns:minmax(100px,1.3fr) 60px 55px 65px 25px;gap:6px}.quantity{width:58px}.below-grid{grid-template-columns:1fr}.saved-plan-bar{grid-template-columns:minmax(90px,.8fr) minmax(100px,1fr) auto minmax(100px,1fr) auto auto;padding:12px 15px}}
+    @media(max-width:760px){.app-shell{display:block}.sidebar{height:auto;border-right:0;border-bottom:1px solid var(--line);padding:12px 18px;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:10px}.brand{padding:0}.brand-mark{width:34px;height:34px}.brand-name{font-size:18px}.brand small,.nav-label,.sidebar-note{display:none}.nav{display:flex;gap:3px}.nav button{font-size:11px;padding:9px 10px;gap:6px}.nav-symbol{display:none}.topbar{height:58px;padding:0 18px}.top-context{font-size:10px}.today{display:none}.page{padding:26px 18px 45px}.planner-grid{grid-template-columns:1fr}.summary-panel{order:-1}.summary-hero{min-height:172px}.page-head{align-items:flex-start}.page-head .button{padding:10px 11px;font-size:11px}.food-table th,.food-table td{padding:11px 9px}.food-table th:nth-child(4),.food-table td:nth-child(4){display:none}.toolbar{flex-wrap:wrap}.search{max-width:none}.count{width:100%;margin-left:0}.meal-labels,.meal-row{grid-template-columns:minmax(90px,1.2fr) 55px 52px 55px 23px;gap:5px}.meal-body{padding:0 10px}.add-food-row{padding:13px 10px}.unit-note{display:none}.saved-plan-bar{grid-template-columns:minmax(100px,1fr) minmax(120px,1.2fr) auto;padding:11px 10px}}
+    @media(max-width:420px){.nav button{padding:8px 7px;font-size:10px}.top-context{max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.select-dog{max-width:155px;padding-left:8px}.page{padding-left:13px;padding-right:13px}.meal-labels,.meal-row{grid-template-columns:minmax(78px,1fr) 52px 44px 48px 20px;gap:4px}.meal-labels{font-size:8px}.quantity{width:50px}.number-cell{font-size:10px}.food-table td:nth-child(3),.food-table th:nth-child(3){display:none}.saved-plan-bar{grid-template-columns:1fr 1fr auto auto}.saved-plan-bar label{grid-column:1/-1}.saved-plan-bar input{grid-column:1/-1}.saved-plan-bar .button{padding:8px 7px;font-size:10px}}
+    :root{color:#172f4d;background:#f2f7fc;--ink:#172f4d;--muted:#647891;--line:#d8e4f0;--paper:#fff;--canvas:#f2f7fc;--green:#173e68;--green-soft:#e2effa;--lime:#c7e5fb;--coral:#548fc4;--coral-soft:#e7f2fb;--shadow:0 18px 50px #18395712}
+    :root,body,button,input,select{font-family:'Open Sans',Arial,sans-serif}
+    body{background:var(--canvas);color:var(--ink)}
+    .brand-name,.page h1,.panel-heading h2,.summary-hero h2,.dog-card h2,.modal h2{font-family:'Open Sans',Arial,sans-serif}
+    .storage-status{color:#316b5c;font-size:10px;font-weight:600;white-space:nowrap}.storage-status.offline{color:#a74432}
+    .sidebar,.topbar{background:#eaf3fb}
+    .nav button:hover{background:#dcebf7}
+    .page .eyebrow{color:#4c7da8}
+    .page h1{color:#172f4d}
+    button:focus-visible,input:focus-visible,select:focus-visible{outline-color:#6da6d5}
+    .button:hover{background:#102f53}
+    .button.secondary:hover,.icon-button:hover{background:#edf5fb}
+    .panel{border-color:#e2ebf4;box-shadow:0 4px 18px #18395708}
+    .summary-hero{background:#173e68 url('https://images.unsplash.com/photo-1786819678835-f7122c83fdf1?auto=format&fit=crop&w=1200&q=85') center 44%/cover}
+    .summary-hero:before{background:linear-gradient(90deg,#102e50ed 0%,#173e68bb 58%,#173e6830 100%)}
+    .food-table th{background:#edf4fa;color:#647891}
+    .food-table tr:hover td{background:#f7fbfe}
+    .category{background:#e5f1fb;color:#3b648a}
+    .notice{background:#e7f1f9;color:#4f6881}
+    .disclaimer{background:#f0f6fb;color:#647891}
+    .saved-plan-bar{background:#f5f9fd}
+    .number-cell{color:#405c78}
+    /* Multi-dog grid styles */
+    .multi-dog-grid{grid-template-columns:minmax(0,1.65fr) minmax(260px,.8fr)}
+    .meal-panels-container{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+    .dog-column{margin-bottom:0}
+    .dog-column.active-dog{box-shadow:0 0 0 2px var(--green)}
+    @media(max-width:760px){.meal-panels-container{grid-template-columns:1fr}}
   </style>
 </head>
 <body> 
@@ -92,7 +133,162 @@
       function saveMealPlan(){const name=$('#saved-plan-name').value.trim(),items=data.meals[data.selectedDog]||[];if(!name||!items.length)return;let plan=data.savedPlans.find(p=>p.name.toLowerCase()===name.toLowerCase());if(plan){if(!confirm(`Replace the saved plan "${plan.name}"?`))return;plan.items=structuredClone(items);plan.updatedAt=new Date().toISOString()}else{plan={id:`plan-${crypto.randomUUID()}`,name,items:structuredClone(items),savedAt:new Date().toISOString()};data.savedPlans.push(plan)}selectedPlanId=plan.id;save();render();showToast('Meal plan saved')}
       function loadMealPlan(){const plan=data.savedPlans.find(p=>p.id===selectedPlanId);if(!plan)return;const items=plan.items.filter(row=>data.foods.some(f=>f.id===row.foodId));if(!items.length){showToast('This plan has no foods in the library');return}if((data.meals[data.selectedDog]||[]).length&&!confirm('Replace the current bowl with this saved plan?'))return;data.meals[data.selectedDog]=structuredClone(items);save();render();showToast(items.length<plan.items.length?'Plan loaded; unavailable foods were skipped':'Meal plan loaded')}
       function deleteSavedPlan(){const index=data.savedPlans.findIndex(p=>p.id===selectedPlanId);if(index<0)return;const name=data.savedPlans[index].name;if(!confirm(`Delete the saved plan "${name}"?`))return;data.savedPlans.splice(index,1);selectedPlanId='';save();render();showToast('Saved plan deleted')}
-      function planPage(){const d=dog(),t=totals(),goal=target(d),percent=goal?Math.min(100,t.kcal/goal*100):0;const rows=data.meals[data.selectedDog]||[];return `<div class="page-head"><div><p class="eyebrow">Daily bowl</p><h1>Meal planner</h1><p class="page-subtitle">Build a meal and see what the numbers add up to.</p></div><button class="button" data-action="add-food">+ Add food</button></div>${!d?`<div class="panel meal-empty"><strong>Add a dog to get started</strong>Create a profile before planning a bowl.<br><button class="button" data-action="new-dog" style="margin-top:15px">Add a dog</button></div>`:`<div class="planner-grid"><section class="panel meal-panel"><div class="panel-heading"><div><h2>${esc(d.name)}'s bowl</h2><p>${esc(d.age)} · ${fmt(d.weight)} kg · ${esc(d.breed||'Profile')}</p></div><button class="button secondary small" data-action="new-dog">Manage dogs</button></div><div class="meal-body">${rows.length?`<div class="meal-labels"><span>Food</span><span>Amount</span><span>Energy</span><span>Protein</span><span></span></div>${rows.map((r,i)=>{const f=data.foods.find(x=>x.id===r.foodId);if(!f)return'';return `<div class="meal-row"><div><div class="food-name">${esc(f.name)}</div><div class="food-meta">${esc(f.category)} · per 100 g</div></div><div><input class="quantity" type="number" min="0" step="5" value="${esc(r.grams)}" aria-label="Amount of ${esc(f.name)} in grams" data-grams="${i}"></div><div class="number-cell">${fmt(f.kcal*r.grams/100)} <small>kcal</small></div><div class="number-cell">${fmt(f.protein*r.grams/100)} <small>g</small></div><button class="remove" aria-label="Remove ${esc(f.name)}" data-remove="${i}">×</button></div>`}).join('')}`:`<div class="meal-empty"><strong>Your bowl is ready to build</strong>Add foods and enter the amount served.</div>`}</div><div class="add-food-row"><select id="quick-food" aria-label="Choose a food to add"><option value="">Choose from food library</option>${data.foods.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}</select><button class="button secondary small" data-action="quick-add">Add</button><span class="unit-note">All amounts in grams</span></div></section><aside class="panel summary-panel"><div class="summary-hero"><p class="eyebrow">Estimated energy</p><h2>Today's total</h2><div class="energy-line"><span class="energy-number">${fmt(t.kcal)}</span><span class="energy-unit">of ~${fmt(goal)} kcal</span></div><div class="energy-track" aria-label="${fmt(percent)}% of estimated daily energy reference"><div class="energy-fill" style="width:${percent}%"></div></div><div class="energy-caption">${fmt(percent)}% of estimated daily reference</div></div><div class="summary-stats"><div class="stat"><span class="stat-label">Protein</span><span class="stat-value">${fmt(t.protein)} <small>g</small></span></div><div class="stat"><span class="stat-label">Fat</span><span class="stat-value">${fmt(t.fat)} <small>g</small></span></div><div class="stat"><span class="stat-label">Fiber</span><span class="stat-value">${fmt(t.fiber)} <small>g</small></span></div><div class="stat"><span class="stat-label">Foods in bowl</span><span class="stat-value">${rows.length}</span></div></div><p class="disclaimer">Energy reference is a rough estimate based on weight and activity. Individual needs vary. Ask your veterinarian about a complete diet and feeding amounts.</p></aside></div><div class="below-grid"><div class="panel quick-card"><div class="quick-icon" aria-hidden="true">▦</div><div><h3>${data.foods.length} foods in your library</h3><p>Nutrition values are listed per 100 g.</p></div><button class="button secondary small" data-view-link="foods">Open library</button></div><div class="panel quick-card"><div class="quick-icon" aria-hidden="true">♧</div><div><h3>${data.dogs.length} dog profiles</h3><p>Each dog has an individual meal plan.</p></div><button class="button secondary small" data-view-link="dogs">View dogs</button></div></div>`}`;}
+      function planPage(){
+        const allDogs = data.dogs;
+        const totals = getTotals(data.selectedDog);
+        const d = allDogs.find(dog => dog.id === data.selectedDog);
+        const goal = target(d);
+        const percent = goal ? Math.min(100, totals.kcal / goal * 100) : 0;
+
+        // Generate columns for each dog
+        const dogColumns = allDogs.map(dog => {
+          const dogTotals = getTotals(dog.id);
+          const dogGoal = target(dog);
+          const dogPercent = dogGoal ? Math.min(100, dogTotals.kcal / dogGoal * 100) : 0;
+          const rows = data.meals[dog.id] || [];
+
+          return `
+            <section class="panel meal-panel dog-column ${dog.id === data.selectedDog ? 'active-dog' : ''}" data-dog-id="${dog.id}">
+              <div class="panel-heading">
+                <div>
+                  <h2>${esc(dog.name)}'s bowl</h2>
+                  <p>${esc(dog.age)} · ${fmt(dog.weight)} kg · ${esc(dog.breed || 'Profile')}</p>
+                </div>
+                <button class="button secondary small" data-select-dog="${dog.id}">Plan</button>
+              </div>
+              <div class="meal-body">
+                ${rows.length ? `
+                  <div class="meal-labels"><span>Food</span><span>Amount</span><span>Energy</span><span>Protein</span><span></span></div>
+                  ${rows.map((r, i) => {
+                    const f = data.foods.find(x => x.id === r.foodId);
+                    if (!f) return '';
+                    return `
+                      <div class="meal-row">
+                        <div>
+                          <div class="food-name">${esc(f.name)}</div>
+                          <div class="food-meta">${esc(f.category)} · per 100 g</div>
+                        </div>
+                        <div>
+                          <input class="quantity" type="number" min="0" step="5" value="${esc(r.grams)}" aria-label="Amount of ${esc(f.name)} in grams" data-grams="${dog.id}-${i}">
+                        </div>
+                        <div class="number-cell">${fmt(f.kcal * r.grams / 100)} <small>kcal</small></div>
+                        <div class="number-cell">${fmt(f.protein * r.grams / 100)} <small>g</small></div>
+                        <button class="remove" aria-label="Remove ${esc(f.name)}" data-remove="${dog.id}-${i}">×</button>
+                      </div>
+                    `;
+                  }).join('')}
+                ` : `
+                  <div class="meal-empty">
+                    <strong>Your bowl is ready to build</strong>
+                    Add foods and enter the amount served.
+                  </div>
+                `}
+              </div>
+              <div class="add-food-row">
+                <select id="quick-food-${dog.id}" aria-label="Choose a food to add">
+                  <option value="">Choose from food library</option>
+                  ${data.foods.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}
+                </select>
+                <button class="button secondary small" data-quick-add="${dog.id}">Add</button>
+                <span class="unit-note">All amounts in grams</span>
+              </div>
+            </section>
+          `;
+        }).join('');
+
+        // Summary panel for selected dog
+        const selectedDogTotals = getTotals(data.selectedDog);
+        const selectedGoal = target(d);
+        const selectedPercent = selectedGoal ? Math.min(100, selectedDogTotals.kcal / selectedGoal * 100) : 0;
+
+        return `
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Daily bowl</p>
+              <h1>Meal planner</h1>
+              <p class="page-subtitle">Build meals for all dogs. See what the numbers add up to.</p>
+            </div>
+            <button class="button" data-action="add-food">+ Add food</button>
+          </div>
+          ${!allDogs.length ? `
+            <div class="panel meal-empty">
+              <strong>Add a dog to get started</strong>
+              Create a profile before planning a bowl.<br>
+              <button class="button" data-action="new-dog" style="margin-top:15px">Add a dog</button>
+            </div>
+          ` : `
+            <div class="planner-grid multi-dog-grid">
+              <div class="meal-panels-container">
+                ${dogColumns}
+              </div>
+              <aside class="panel summary-panel">
+                <div class="summary-hero">
+                  <p class="eyebrow">Estimated energy</p>
+                  <h2>${esc(d?.name || 'Selected Dog')} - Today's total</h2>
+                  <div class="energy-line">
+                    <span class="energy-number">${fmt(selectedDogTotals.kcal)}</span>
+                    <span class="energy-unit">of ~${fmt(selectedGoal)} kcal</span>
+                  </div>
+                  <div class="energy-track" aria-label="${fmt(selectedPercent)}% of estimated daily energy reference">
+                    <div class="energy-fill" style="width:${selectedPercent}%"></div>
+                  </div>
+                  <div class="energy-caption">${fmt(selectedPercent)}% of estimated daily reference</div>
+                </div>
+                <div class="summary-stats">
+                  <div class="stat">
+                    <span class="stat-label">Protein</span>
+                    <span class="stat-value">${fmt(selectedDogTotals.protein)} <small>g</small></span>
+                  </div>
+                  <div class="stat">
+                    <span class="stat-label">Fat</span>
+                    <span class="stat-value">${fmt(selectedDogTotals.fat)} <small>g</small></span>
+                  </div>
+                  <div class="stat">
+                    <span class="stat-label">Fiber</span>
+                    <span class="stat-value">${fmt(selectedDogTotals.fiber)} <small>g</small></span>
+                  </div>
+                  <div class="stat">
+                    <span class="stat-label">Foods in bowl</span>
+                    <span class="stat-value">${(data.meals[data.selectedDog] || []).length}</span>
+                  </div>
+                </div>
+                <p class="disclaimer">Energy reference is a rough estimate based on weight and activity. Individual needs vary. Ask your veterinarian about a complete diet and feeding amounts.</p>
+              </aside>
+            </div>
+            <div class="below-grid">
+              <div class="panel quick-card">
+                <div class="quick-icon" aria-hidden="true">▦</div>
+                <div>
+                  <h3>${data.foods.length} foods in your library</h3>
+                  <p>Nutrition values are listed per 100 g.</p>
+                </div>
+                <button class="button secondary small" data-view-link="foods">Open library</button>
+              </div>
+              <div class="panel quick-card">
+                <div class="quick-icon" aria-hidden="true">♧</div>
+                <div>
+                  <h3>${data.dogs.length} dog profiles</h3>
+                  <p>Each dog has an individual meal plan.</p>
+                </div>
+                <button class="button secondary small" data-view-link="dogs">View dogs</button>
+              </div>
+            </div>
+          `}
+        `;
+      }
+
+      // Helper function to get totals for a specific dog
+      function getTotals(dogId) {
+        const result = { kcal: 0, protein: 0, fat: 0, fiber: 0 };
+        (data.meals[dogId] || []).forEach(row => {
+          const f = data.foods.find(x => x.id === row.foodId);
+          if (!f) return;
+          for (const key of Object.keys(result)) {
+            result[key] += (Number(f[key]) || 0) * (Number(row.grams) || 0) / 100;
+          }
+        });
+        return result;
+      }
       function foodsPage(){const foods=data.foods.filter(f=>`${f.name} ${f.category}`.toLowerCase().includes(foodQuery.toLowerCase()));return `<div class="page-head"><div><p class="eyebrow">Your ingredients</p><h1>Food library</h1><p class="page-subtitle">Keep the foods you use and their nutrition values in one place.</p></div><button class="button" data-action="new-food">+ Add food</button></div><div class="toolbar"><input class="search" id="food-search" placeholder="Search foods" aria-label="Search foods" value="${esc(foodQuery)}"><span class="count">${foods.length} of ${data.foods.length} foods</span></div><div class="panel table-panel"><table class="food-table"><thead><tr><th>Food</th><th>Category</th><th>Energy</th><th>Protein</th><th>Fat</th><th>Fiber</th><th></th></tr></thead><tbody>${foods.length?foods.map(f=>`<tr><td><div class="food-cell">${f.image?`<img class="food-thumb" src="${esc(f.image)}" alt="">`:'<span class="food-thumb-placeholder" aria-hidden="true"></span>'}<span>${esc(f.name)}</span></div></td><td><span class="category">${esc(f.category)}</span></td><td class="values">${fmt(f.kcal)} kcal</td><td class="values">${fmt(f.protein)} g</td><td class="values">${fmt(f.fat)} g</td><td class="values">${fmt(f.fiber)} g</td><td><div class="row-actions"><button class="icon-button" title="Edit ${esc(f.name)}" aria-label="Edit ${esc(f.name)}" data-edit-food="${esc(f.id)}">✎</button><button class="icon-button" title="Delete ${esc(f.name)}" aria-label="Delete ${esc(f.name)}" data-delete-food="${esc(f.id)}">×</button></div></td></tr>`).join(''):`<tr><td colspan="7" style="text-align:center;padding:36px;color:#788178">No matching foods. Add one to your library.</td></tr>`}</tbody></table></div><div class="notice">Nutrition values are per 100 g. Starter entries are examples only; verify values against the product label or a trusted nutrient database before relying on them.</div>`}
       function dogsPage(){return `<div class="page-head"><div><p class="eyebrow">The whole pack</p><h1>My dogs</h1><p class="page-subtitle">Each profile keeps its own bowl and energy reference.</p></div><button class="button" data-action="new-dog">+ Add dog</button></div>${data.dogs.length?`<div class="dog-grid">${data.dogs.map((d,i)=>`<article class="dog-card" style="animation-delay:${i*45}ms"><div class="dog-card-top"><div class="dog-avatar" aria-hidden="true">${d.photo?`<img src="${esc(d.photo)}" alt="${esc(d.name)} photo" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:'🐾'}</div><button class="icon-button" title="Edit ${esc(d.name)}" aria-label="Edit ${esc(d.name)}" data-edit-dog="${esc(d.id)}">✎</button></div><h2>${esc(d.name)}</h2><div class="dog-detail">${esc(d.breed||'Dog')} · ${esc(d.age)} · ${fmt(d.weight)} kg${d.gender?` · ${esc(d.gender)}`:''}</div>${d.gender==='Female'&&(d.heat1||d.heat2)?`<div class="dog-detail">${d.heat1?`In heat 1: ${fmtDate(d.heat1)}`:''}${d.heat1&&d.heat2?' · ':''}${d.heat2?`In heat 2: ${fmtDate(d.heat2)}`:''}</div>`:''}<div class="dog-energy"><span>Estimated daily energy reference</span><strong>~${fmt(target(d))} kcal</strong></div><div class="dog-actions"><button class="button small" data-select-dog="${esc(d.id)}">Plan a meal</button><button class="button secondary small" data-delete-dog="${esc(d.id)}">Remove</button></div></article>`).join('')}</div>`:`<div class="panel meal-empty"><strong>No dog profiles yet</strong>Add a dog to start planning meals.<br><button class="button" data-action="new-dog" style="margin-top:15px">Add a dog</button></div>`}<div class="notice">The energy reference uses a general weight-based estimate and an activity multiplier you choose. It is not an individualized feeding prescription; puppies, health conditions, and life stages may need different guidance.</div>`}
       function openModal(type,item){const editing=!!item;const title=type==='food'?(editing?'Edit food':'Add a food'):(editing?'Edit dog profile':'Add a dog');let fields='';if(type==='food'){fields=`<div class="field full"><label for="f-name">Food name</label><input id="f-name" name="name" required maxlength="60" value="${esc(item?.name||'')}" placeholder="e.g. Salmon kibble"></div><div class="field full"><label for="f-category">Category</label><select id="f-category" name="category">${['Dry food','Wet food','Protein','Produce','Dairy','Treat','Other'].map(c=>`<option ${item?.category===c?'selected':''}>${c}</option>`).join('')}</select></div>${[['kcal','Energy (kcal)','e.g. 350'],['protein','Protein (g)','e.g. 24'],['fat','Fat (g)','e.g. 12'],['fiber','Fiber (g)','e.g. 3']].map(([n,l,p])=>`<div class="field"><label for="f-${n}">${l} per 100 g</label><input id="f-${n}" name="${n}" type="number" min="0" max="10000" step="0.1" required value="${esc(item?.[n]??'')}" placeholder="${p}"></div>`).join('')}<p class="form-help full">Enter the nutrition values per 100 g from the package or a reliable database. Values here are used to calculate the bowl totals.</p>`}else{fields=`<div class="field full"><label for="d-name">Name</label><input id="d-name" name="name" required maxlength="40" value="${esc(item?.name||'')}" placeholder="e.g. Milo"></div><div class="field"><label for="d-weight">Weight (kg)</label><input id="d-weight" name="weight" type="number" min="0.1" max="250" step="0.1" required value="${esc(item?.weight??'')}" placeholder="12.5"></div><div class="field"><label for="d-age">Life stage</label><select id="d-age" name="age">${['Puppy','Adult','Senior'].map(a=>`<option ${item?.age===a?'selected':''}>${a}</option>`).join('')}</select></div><div class="field full"><label for="d-breed">Breed or note (optional)</label><input id="d-breed" name="breed" maxlength="50" value="${esc(item?.breed||'')}" placeholder="Mixed breed"></div><div class="field full"><label for="d-activity">Activity estimate</label><select id="d-activity" name="activity">${[[1.2,'Low activity'],[1.4,'Gentle / senior'],[1.6,'Typical adult'],[1.8,'Active'],[2,'Very active']].map(([v,l])=>`<option value="${v}" ${Number(item?.activity??1.6)===v?'selected':''}>${l}</option>`).join('')}</select></div><p class="form-help full">Used only for a rough daily energy reference. Your veterinarian can help determine an appropriate target for this dog.</p>`}$('#modal-root').innerHTML=`<div class="modal-backdrop" data-close-overlay><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><h2 id="modal-title">${title}</h2><p>${type==='food'?'Nutrition details are stored per 100 g.':'Add basic details for this dog.'}</p></div><button class="icon-button" data-close aria-label="Close dialog">×</button></div><form id="edit-form" data-kind="${type}" data-id="${esc(item?.id||'')}"><div class="form-grid">${fields}</div><div class="modal-actions"><button type="button" class="button secondary" data-close>Cancel</button><button class="button" type="submit">${editing?'Save changes':'Save'}</button></div></form></section></div>`;$('#'+(type==='food'?'f-name':'d-name')).focus()}
