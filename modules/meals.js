@@ -89,4 +89,3 @@ export async function deletePlan(id) {
     connection.release();
   }
 }
-```

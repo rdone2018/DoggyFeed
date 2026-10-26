@@ -63,4 +63,3 @@ export async function setSelectedDog(id) {
     connection.release();
   }
 }
-```

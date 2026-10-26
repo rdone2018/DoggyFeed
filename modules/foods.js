@@ -39,4 +39,3 @@ export async function deleteFood(id) {
     connection.release();
   }
 }
-```
