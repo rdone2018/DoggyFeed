@@ -80,6 +80,31 @@ const schema = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
 
+// Columns added after the tables were first created. CREATE TABLE IF NOT EXISTS does not add
+// them to an existing table, so they are added here when missing.
+const laterColumns = [
+  ['dogs', 'breed', 'VARCHAR(120) NULL'],
+  ['dogs', 'gender', 'VARCHAR(20) NULL'],
+  ['dogs', 'heat1', 'VARCHAR(10) NULL'],
+  ['dogs', 'heat2', 'VARCHAR(10) NULL'],
+  ['dogs', 'photo', 'LONGTEXT NULL'],
+  ['foods', 'image', 'LONGTEXT NULL']
+];
+
+async function addMissingColumns(connection) {
+  const rows = await connection.query(
+    `SELECT TABLE_NAME AS tableName, COLUMN_NAME AS columnName
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()`
+  );
+  const existing = new Set(rows.map(row => `${row.tableName}.${row.columnName}`.toLowerCase()));
+  for (const [table, column, definition] of laterColumns) {
+    if (existing.has(`${table}.${column}`)) continue;
+    await connection.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    console.log(`Added missing column ${table}.${column} to the database.`);
+  }
+}
+
 // Convert database rows to the shape the browser app uses.
 export function toDog(dog) {
   return {
@@ -189,6 +214,7 @@ export async function initializeDatabase() {
   const connection = await getConnection();
   try {
     for (const statement of schema) await connection.query(statement);
+    await addMissingColumns(connection);
     const rows = await connection.query(
       "SELECT setting_value FROM app_settings WHERE setting_key = 'schemaInitialized'"
     );

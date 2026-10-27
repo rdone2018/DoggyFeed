@@ -72,7 +72,9 @@ function sendRouteError(response, error, message) {
   if (response.headersSent) return;
   const statusCode = error.statusCode || 500;
   if (statusCode === 500) console.error(`${message}:`, error);
-  sendJson(response, statusCode, { error: statusCode === 500 ? `${message}.` : error.message });
+  // Include the database error code (for example ER_BAD_FIELD_ERROR) so failures can be diagnosed from the browser.
+  const detail = statusCode === 500 && error.code ? ` (${error.code})` : '';
+  sendJson(response, statusCode, { error: statusCode === 500 ? `${message}${detail}.` : error.message });
 }
 
 function isValidState(state) {
