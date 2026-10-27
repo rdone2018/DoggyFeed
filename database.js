@@ -4,9 +4,16 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-dotenv.config({ path: process.env.DOGGYFEED_ENV_FILE || '/etc/doggyfeed/doggyfeed.env' });
-
 const root = path.dirname(fileURLToPath(import.meta.url));
+
+// dotenv never overrides values that are already set, so the first file that defines a value wins.
+// The project .env is a fallback for local development, for example on Windows where /etc does not exist.
+if (process.env.DOGGYFEED_ENV_FILE) {
+  dotenv.config({ path: process.env.DOGGYFEED_ENV_FILE });
+} else {
+  dotenv.config({ path: ['/etc/doggyfeed/doggyfeed.env', path.join(root, '.env')] });
+}
+
 const legacyStateFile = path.join(root, 'data', 'state.json');
 export const pool = mariadb.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -72,6 +79,22 @@ const schema = [
     INDEX saved_plan_items_food_id (food_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
+
+// Convert database rows to the shape the browser app uses.
+export function toDog(dog) {
+  return {
+    id: dog.id, name: dog.name, weight: Number(dog.weight), activity: Number(dog.activity),
+    age: dog.life_stage, breed: dog.breed || '', gender: dog.gender || '',
+    heat1: dog.heat1 || '', heat2: dog.heat2 || '', photo: dog.photo || ''
+  };
+}
+
+export function toFood(food) {
+  return {
+    id: food.id, name: food.name, category: food.category, kcal: Number(food.kcal),
+    protein: Number(food.protein), fat: Number(food.fat), fiber: Number(food.fiber), image: food.image || ''
+  };
+}
 
 function validState(state) {
   return state && Array.isArray(state.dogs) && Array.isArray(state.foods) &&
@@ -210,15 +233,8 @@ export async function readState() {
     }
 
     return {
-      dogs: dogs.map(dog => ({
-        id: dog.id, name: dog.name, weight: Number(dog.weight), activity: Number(dog.activity),
-        age: dog.life_stage, breed: dog.breed || '', gender: dog.gender || '',
-        heat1: dog.heat1 || '', heat2: dog.heat2 || '', photo: dog.photo || ''
-      })),
-      foods: foods.map(food => ({
-        id: food.id, name: food.name, category: food.category, kcal: Number(food.kcal),
-        protein: Number(food.protein), fat: Number(food.fat), fiber: Number(food.fiber), image: food.image || ''
-      })),
+      dogs: dogs.map(toDog),
+      foods: foods.map(toFood),
       meals,
       savedPlans: plans.map(plan => ({
         id: plan.id, name: plan.name, savedAt: plan.saved_at, updatedAt: plan.updated_at,

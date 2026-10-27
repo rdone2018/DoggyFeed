@@ -37,7 +37,13 @@ export async function getSavedPlans() {
   const connection = await getConnection();
   try {
     const plans = await connection.query('SELECT * FROM saved_plans ORDER BY name');
-    return plans;
+    const rows = await connection.query('SELECT * FROM saved_plan_items ORDER BY plan_id, position');
+    const items = new Map(plans.map(plan => [plan.id, []]));
+    for (const row of rows) items.get(row.plan_id)?.push({ foodId: row.food_id, grams: Number(row.grams) });
+    return plans.map(plan => ({
+      id: plan.id, name: plan.name, savedAt: plan.saved_at, updatedAt: plan.updated_at,
+      items: items.get(plan.id)
+    }));
   } finally {
     connection.release();
   }
@@ -61,7 +67,8 @@ export async function savePlan(plan) {
   try {
     await connection.beginTransaction();
     await connection.query(
-      'INSERT INTO saved_plans (id, name, saved_at, updated_at) VALUES (?, ?, ?, ?)',
+      `INSERT INTO saved_plans (id, name, saved_at, updated_at) VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE name = VALUES(name), saved_at = VALUES(saved_at), updated_at = VALUES(updated_at)`,
       [plan.id, plan.name, plan.savedAt || null, plan.updatedAt || null]
     );
     await connection.query('DELETE FROM saved_plan_items WHERE plan_id = ?', [plan.id]);
@@ -83,8 +90,13 @@ export async function savePlan(plan) {
 export async function deletePlan(id) {
   const connection = await getConnection();
   try {
+    await connection.beginTransaction();
     await connection.query('DELETE FROM saved_plan_items WHERE plan_id = ?', [id]);
     await connection.query('DELETE FROM saved_plans WHERE id = ?', [id]);
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
   } finally {
     connection.release();
   }

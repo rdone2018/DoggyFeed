@@ -1,9 +1,10 @@
-import { getConnection } from '../database.js';
+import { getConnection, toDog } from '../database.js';
 
 export async function getDogs() {
   const connection = await getConnection();
   try {
-    return await connection.query('SELECT * FROM dogs ORDER BY name');
+    const rows = await connection.query('SELECT * FROM dogs ORDER BY name');
+    return rows.map(toDog);
   } finally {
     connection.release();
   }
@@ -34,7 +35,17 @@ export async function saveDog(dog) {
 export async function deleteDog(id) {
   const connection = await getConnection();
   try {
+    await connection.beginTransaction();
+    await connection.query('DELETE FROM meal_items WHERE dog_id = ?', [id]);
     await connection.query('DELETE FROM dogs WHERE id = ?', [id]);
+    await connection.query(
+      "DELETE FROM app_settings WHERE setting_key = 'selectedDog' AND setting_value = ?",
+      [id]
+    );
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
   } finally {
     connection.release();
   }
@@ -56,7 +67,8 @@ export async function setSelectedDog(id) {
   const connection = await getConnection();
   try {
     await connection.query(
-      "INSERT INTO app_settings (setting_key, setting_value) VALUES ('selectedDog', ?)",
+      `INSERT INTO app_settings (setting_key, setting_value) VALUES ('selectedDog', ?)
+       ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
       [id]
     );
   } finally {

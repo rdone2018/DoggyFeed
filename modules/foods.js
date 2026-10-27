@@ -1,9 +1,10 @@
-import { getConnection } from '../database.js';
+import { getConnection, toFood } from '../database.js';
 
 export async function getFoods() {
   const connection = await getConnection();
   try {
-    return await connection.query('SELECT * FROM foods ORDER BY name');
+    const rows = await connection.query('SELECT * FROM foods ORDER BY name');
+    return rows.map(toFood);
   } finally {
     connection.release();
   }
@@ -34,7 +35,13 @@ export async function saveFood(food) {
 export async function deleteFood(id) {
   const connection = await getConnection();
   try {
+    await connection.beginTransaction();
+    await connection.query('DELETE FROM meal_items WHERE food_id = ?', [id]);
     await connection.query('DELETE FROM foods WHERE id = ?', [id]);
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
   } finally {
     connection.release();
   }

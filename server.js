@@ -56,6 +56,25 @@ function readRequestJson(request) {
   });
 }
 
+// Returns the decoded id from paths like /api/dogs/<id>, or null when the path does not match.
+function routeId(pathname, prefix) {
+  if (!pathname.startsWith(prefix)) return null;
+  const rest = pathname.slice(prefix.length);
+  if (!rest || rest.includes('/')) return null;
+  try {
+    return decodeURIComponent(rest);
+  } catch {
+    return null;
+  }
+}
+
+function sendRouteError(response, error, message) {
+  if (response.headersSent) return;
+  const statusCode = error.statusCode || 500;
+  if (statusCode === 500) console.error(`${message}:`, error);
+  sendJson(response, statusCode, { error: statusCode === 500 ? `${message}.` : error.message });
+}
+
 function isValidState(state) {
   return state &&
     Array.isArray(state.dogs) &&
@@ -121,13 +140,15 @@ const server = http.createServer(async (request, response) => {
       await writeState(state);
       sendJson(response, 200, { saved: true });
     } catch (error) {
-      if (response.headersSent) return;
-      const statusCode = error.statusCode || 500;
-      if (statusCode === 500) console.error('Unable to save application data:', error);
-      sendJson(response, statusCode, { error: statusCode === 500 ? 'Unable to save application data.' : error.message });
+      sendRouteError(response, error, 'Unable to save application data');
     }
     return;
   }
+
+  const dogId = routeId(pathname, '/api/dogs/');
+  const foodId = routeId(pathname, '/api/foods/');
+  const mealsDogId = routeId(pathname, '/api/meals/');
+  const planId = routeId(pathname, '/api/plans/');
 
   // Dogs module routes
   if (pathname === '/api/dogs' && request.method === 'GET') {
@@ -144,19 +165,21 @@ const server = http.createServer(async (request, response) => {
   if (pathname === '/api/dogs' && request.method === 'PUT') {
     try {
       const dog = await readRequestJson(request);
+      if (!dog || typeof dog.id !== 'string' || !dog.id || typeof dog.name !== 'string' || !dog.name) {
+        sendJson(response, 400, { error: 'A dog needs an id and a name.' });
+        return;
+      }
       await dogsModule.saveDog(dog);
       sendJson(response, 200, { saved: true });
-  } catch (error) {
-      console.error('Unable to save dog:', error);
-      sendJson(response, 500, { error: 'Unable to save dog.' });
-  }
+    } catch (error) {
+      sendRouteError(response, error, 'Unable to save dog');
+    }
     return;
-}
+  }
 
-  if (pathname === '/api/dogs/:id' && request.method === 'DELETE') {
+  if (dogId && request.method === 'DELETE') {
     try {
-      const id = pathname.split('/').pop();
-      await dogsModule.deleteDog(id);
+      await dogsModule.deleteDog(dogId);
       sendJson(response, 200, { deleted: true });
     } catch (error) {
       console.error('Unable to delete dog:', error);
@@ -180,19 +203,21 @@ const server = http.createServer(async (request, response) => {
   if (pathname === '/api/foods' && request.method === 'PUT') {
     try {
       const food = await readRequestJson(request);
+      if (!food || typeof food.id !== 'string' || !food.id || typeof food.name !== 'string' || !food.name) {
+        sendJson(response, 400, { error: 'A food needs an id and a name.' });
+        return;
+      }
       await foodsModule.saveFood(food);
       sendJson(response, 200, { saved: true });
     } catch (error) {
-      console.error('Unable to save food:', error);
-      sendJson(response, 500, { error: 'Unable to save food.' });
+      sendRouteError(response, error, 'Unable to save food');
     }
     return;
   }
 
-  if (pathname === '/api/foods/:id' && request.method === 'DELETE') {
+  if (foodId && request.method === 'DELETE') {
     try {
-      const id = pathname.split('/').pop();
-      await foodsModule.deleteFood(id);
+      await foodsModule.deleteFood(foodId);
       sendJson(response, 200, { deleted: true });
     } catch (error) {
       console.error('Unable to delete food:', error);
@@ -202,10 +227,9 @@ const server = http.createServer(async (request, response) => {
   }
 
   // Meals module routes
-  if (pathname.startsWith('/api/meals/') && request.method === 'GET') {
+  if (mealsDogId && request.method === 'GET') {
     try {
-      const dogId = pathname.split('/').pop();
-      const meals = await mealsModule.getMealsForDog(dogId);
+      const meals = await mealsModule.getMealsForDog(mealsDogId);
       sendJson(response, 200, meals);
     } catch (error) {
       console.error('Unable to read meals:', error);
@@ -214,15 +238,17 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (pathname.startsWith('/api/meals/') && request.method === 'PUT') {
+  if (mealsDogId && request.method === 'PUT') {
     try {
-      const dogId = pathname.split('/').pop();
       const meals = await readRequestJson(request);
-      await mealsModule.saveMealsForDog(dogId, meals);
+      if (!Array.isArray(meals)) {
+        sendJson(response, 400, { error: 'Meals must be a list of foods and amounts.' });
+        return;
+      }
+      await mealsModule.saveMealsForDog(mealsDogId, meals);
       sendJson(response, 200, { saved: true });
     } catch (error) {
-      console.error('Unable to save meals:', error);
-      sendJson(response, 500, { error: 'Unable to save meals.' });
+      sendRouteError(response, error, 'Unable to save meals');
     }
     return;
   }
@@ -241,19 +267,21 @@ const server = http.createServer(async (request, response) => {
   if (pathname === '/api/plans' && request.method === 'PUT') {
     try {
       const plan = await readRequestJson(request);
+      if (!plan || typeof plan.id !== 'string' || !plan.id || typeof plan.name !== 'string' || !plan.name) {
+        sendJson(response, 400, { error: 'A plan needs an id and a name.' });
+        return;
+      }
       await mealsModule.savePlan(plan);
       sendJson(response, 200, { saved: true });
     } catch (error) {
-      console.error('Unable to save plan:', error);
-      sendJson(response, 500, { error: 'Unable to save plan.' });
+      sendRouteError(response, error, 'Unable to save plan');
     }
     return;
   }
 
-  if (pathname === '/api/plans/:id' && request.method === 'DELETE') {
+  if (planId && request.method === 'DELETE') {
     try {
-      const id = pathname.split('/').pop();
-      await mealsModule.deletePlan(id);
+      await mealsModule.deletePlan(planId);
       sendJson(response, 200, { deleted: true });
     } catch (error) {
       console.error('Unable to delete plan:', error);
