@@ -24,7 +24,7 @@ function isLoopbackRequest(request) {
   return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(request.socket.remoteAddress);
 }
 
-function readRequestJson(request) {
+function readRequestJson(request, maxBytes = maxBodyBytes) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
@@ -32,7 +32,7 @@ function readRequestJson(request) {
 
     request.on('data', chunk => {
       size += chunk.length;
-      if (size > maxBodyBytes) {
+      if (size > maxBytes) {
         tooLarge = true;
       } else {
         chunks.push(chunk);
@@ -133,6 +133,23 @@ const server = http.createServer(async (request, response) => {
       console.error('Unable to serve database diagnostics:', error);
       response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
       response.end('Unable to serve database diagnostics.');
+    }
+    return;
+  }
+
+  // Save failures the browser saw but this server never received, such as a proxy rejecting a large request.
+  if (pathname === '/api/client-errors' && request.method === 'POST') {
+    try {
+      const report = await readRequestJson(request, 16 * 1024);
+      const error = new Error(String(report?.message || 'Unknown browser error'));
+      error.statusCode = Number(report?.status) || null;
+      await recordError('Browser save failed', error, {
+        request: 'PUT /api/state (reported by the browser)',
+        bodyBytes: Number(report?.bodyBytes) || null
+      });
+      sendJson(response, 200, { recorded: true });
+    } catch {
+      sendJson(response, 400, { error: 'Invalid error report.' });
     }
     return;
   }

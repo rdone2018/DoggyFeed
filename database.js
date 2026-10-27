@@ -172,13 +172,14 @@ function cleanState(state) {
       id, name: text(dog.name, 100) || 'Dog', weight: amount(dog.weight, 0, 999999),
       activity: amount(dog.activity, 1.6, 999) || 1.6, lifeStage: text(dog.age, 30) || 'Adult',
       breed: text(dog.breed, 120), gender: text(dog.gender, 20), heat1: text(dog.heat1, 10), heat2: text(dog.heat2, 10),
-      photo: text(dog.photo, Infinity), desiredWeight: Number(dog.desiredWeight) > 0 ? amount(dog.desiredWeight, null, 999999) : null,
+      photo: text(dog.photo, Infinity), keepPhoto: dog.keepPhoto === true, desiredWeight: Number(dog.desiredWeight) > 0 ? amount(dog.desiredWeight, null, 999999) : null,
       mealsPerDay: Math.round(amount(dog.mealsPerDay, 1, 10)) || 1
     })),
     foods: uniqueById(state.foods).map(([id, food]) => ({
       id, name: text(food.name, 120) || 'Food', category: text(food.category, 50) || 'Other',
       kcal: amount(food.kcal, 0, 99999999), protein: amount(food.protein, 0, 99999999),
-      fat: amount(food.fat, 0, 99999999), fiber: amount(food.fiber, 0, 99999999), image: text(food.image, Infinity)
+      fat: amount(food.fat, 0, 99999999), fiber: amount(food.fiber, 0, 99999999), image: text(food.image, Infinity),
+      keepImage: food.keepImage === true
     })),
     meals,
     savedPlans: uniqueById(state.savedPlans).map(([id, plan]) => ({
@@ -194,6 +195,17 @@ export async function replaceState(rawState) {
   const connection = await getConnection();
   try {
     await connection.beginTransaction();
+
+    // The browser leaves out pictures that are already stored and marks them to keep.
+    const storedPhotos = new Map();
+    const storedImages = new Map();
+    if (state.dogs.some(dog => dog.keepPhoto)) {
+      for (const row of await connection.query('SELECT id, photo FROM dogs')) storedPhotos.set(row.id, row.photo);
+    }
+    if (state.foods.some(food => food.keepImage)) {
+      for (const row of await connection.query('SELECT id, image FROM foods')) storedImages.set(row.id, row.image);
+    }
+
     await connection.query('DELETE FROM saved_plan_items');
     await connection.query('DELETE FROM saved_plans');
     await connection.query('DELETE FROM meal_items');
@@ -206,7 +218,8 @@ export async function replaceState(rawState) {
         `INSERT INTO dogs (id, name, weight, activity, life_stage, breed, gender, heat1, heat2, photo, desired_weight, meals_per_day)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [dog.id, dog.name, dog.weight, dog.activity, dog.lifeStage,
-          dog.breed, dog.gender, dog.heat1, dog.heat2, dog.photo, dog.desiredWeight, dog.mealsPerDay]
+          dog.breed, dog.gender, dog.heat1, dog.heat2, dog.keepPhoto ? storedPhotos.get(dog.id) ?? null : dog.photo,
+          dog.desiredWeight, dog.mealsPerDay]
       );
     }
 
@@ -214,7 +227,8 @@ export async function replaceState(rawState) {
       await connection.query(
         `INSERT INTO foods (id, name, category, kcal, protein, fat, fiber, image)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [food.id, food.name, food.category, food.kcal, food.protein, food.fat, food.fiber, food.image]
+        [food.id, food.name, food.category, food.kcal, food.protein, food.fat, food.fiber,
+          food.keepImage ? storedImages.get(food.id) ?? null : food.image]
       );
     }
 
