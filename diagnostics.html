@@ -11,6 +11,7 @@
   <style>
     :root{font-family:'Open Sans',Arial,sans-serif;color:#172f4d;background:#f2f7fc;font-synthesis:none;text-rendering:optimizeLegibility;--ink:#172f4d;--muted:#647891;--line:#d8e4f0;--paper:#fff;--navy:#173e68;--blue:#eaf3fb}*{box-sizing:border-box}body{margin:0;min-width:320px}.topbar{height:66px;padding:0 clamp(18px,5vw,56px);display:flex;align-items:center;justify-content:space-between;background:var(--blue);border-bottom:1px solid var(--line)}.brand{font-weight:700;font-size:14px}.brand span{color:var(--muted);font-size:11px;font-weight:400;margin-left:9px}.top-actions{display:flex;gap:9px}.button{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:7px;padding:9px 13px;background:#fff;color:var(--ink);font:600 11px inherit;text-decoration:none;cursor:pointer}.button.primary{background:var(--navy);border-color:var(--navy);color:white}.button:hover{filter:brightness(.97)}main{max-width:1280px;padding:32px clamp(18px,5vw,56px) 60px;margin:auto}.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:21px}.eyebrow{margin:0 0 7px;color:#4c7da8;font-size:10px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase}h1{margin:0;font-size:30px;line-height:1.2;font-weight:600}.subtitle{margin:7px 0 0;color:var(--muted);font-size:12px}.status{margin:0 0 18px;padding:12px 14px;background:#e4f0fa;color:#3f5e7c;border-radius:7px;font-size:11px}.status.error{background:#fff0eb;color:#a74432}.table-card{margin:0 0 16px;border:1px solid var(--line);border-radius:8px;background:var(--paper);overflow:hidden}.table-head{padding:14px 17px;display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line)}h2{margin:0;font-size:14px;font-weight:700}.table-count{color:var(--muted);font-size:10px;white-space:nowrap}.table-scroll{overflow:auto;max-height:65vh}.data-table{width:100%;border-collapse:collapse;text-align:left;font-size:11px}.data-table th{position:sticky;top:0;z-index:1;background:#edf4fa;color:#526a83;font-size:9px;letter-spacing:.4px;text-transform:uppercase}.data-table th,.data-table td{padding:10px 12px;vertical-align:top;border-bottom:1px solid #eaf0f6}.data-table tbody tr:last-child td{border-bottom:0}.data-table td{max-width:360px;overflow-wrap:anywhere;white-space:pre-wrap}.null{color:#96a2b0;font-style:italic}.image-value{display:flex;align-items:center;gap:9px;white-space:nowrap}.image-value img{width:52px;height:42px;object-fit:cover;border-radius:4px;background:#edf4fa}.empty{padding:20px;color:var(--muted);font-size:11px}.loading{padding:34px;text-align:center;color:var(--muted);font-size:12px}.footer-note{color:var(--muted);font-size:10px;line-height:1.5;margin-top:18px}@media(max-width:650px){.topbar{height:auto;min-height:62px;padding:10px 14px}.brand span{display:none}.top-actions{gap:6px}.button{padding:8px 9px;font-size:10px}main{padding:24px 13px 40px}.page-head{align-items:flex-start;flex-direction:column}.page-head .top-actions{align-self:flex-end}.table-head{padding:12px}.data-table th,.data-table td{padding:8px;font-size:10px}.data-table td{min-width:110px}.table-scroll{max-height:70vh}}
     .button{font-family:'Open Sans',Arial,sans-serif}
+    .log-card .table-head p{margin:4px 0 0;color:var(--muted);font-size:10px}.log-card .data-table td{max-width:none}.log-card .error-code{color:#a74432;font-weight:700;white-space:nowrap}.log-card .log-time{white-space:nowrap;color:#526a83}.log-card .log-message{min-width:260px}.log-card .log-sql{font-family:Consolas,monospace;font-size:10px;color:#526a83;min-width:220px}.log-empty{padding:16px 17px;color:#316b5c;font-size:11px}
   </style>
 </head>
 <body>
@@ -21,8 +22,12 @@
   <main>
     <div class="page-head"><div><p class="eyebrow">Read only</p><h1>Database diagnostics</h1><p class="subtitle" id="database-name">Loading database...</p></div></div>
     <div class="status" id="status" role="status" aria-live="polite">Reading tables and stored values.</div>
+    <section class="table-card log-card" aria-labelledby="error-log-title">
+      <div class="table-head"><div><h2 id="error-log-title">Database error log</h2><p>The latest 100 errors, newest first. Stored in data/database-errors.log on the server.</p></div><span class="table-count" id="error-count"></span></div>
+      <div id="error-log"><div class="loading">Reading the error log...</div></div>
+    </section>
     <div id="tables"><div class="loading">Connecting to database...</div></div>
-    <p class="footer-note">This page is available only from the computer running DoggyFeed. Image cells show a preview and stored size rather than raw image data.</p>
+    <p class="footer-note">This page is available only from the computer running DoggyFeed. Image cells show a preview and stored size rather than raw image data. Logged SQL may include stored values such as dog names.</p>
   </main>
   <script type="module">
     const tablesElement = document.querySelector('#tables');
@@ -123,8 +128,74 @@
       }
     }
 
-    document.querySelector('#refresh').addEventListener('click', loadTables);
-    loadTables();
+    const errorLogElement = document.querySelector('#error-log');
+    const errorCountElement = document.querySelector('#error-count');
+
+    function formatBytes(bytes) {
+      if (bytes === null || bytes === undefined) return '';
+      return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${(bytes / 1024).toFixed(1)} KB`;
+    }
+
+    function renderErrors(errors) {
+      if (!errors.length) {
+        errorLogElement.replaceChildren(Object.assign(document.createElement('div'), { className: 'log-empty', textContent: 'No database errors have been recorded.' }));
+        return;
+      }
+      const scroll = document.createElement('div');
+      scroll.className = 'table-scroll';
+      const grid = document.createElement('table');
+      grid.className = 'data-table';
+      const head = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      for (const label of ['Time', 'Operation', 'Request', 'Error code', 'Message', 'SQL']) {
+        headRow.append(Object.assign(document.createElement('th'), { textContent: label }));
+      }
+      head.append(headRow);
+      const body = document.createElement('tbody');
+      for (const entry of errors) {
+        const row = document.createElement('tr');
+        const time = entry.time ? new Date(entry.time) : null;
+        const request = [entry.request, entry.bodyBytes ? formatBytes(entry.bodyBytes) : ''].filter(Boolean).join('\n');
+        const code = [entry.code, entry.errno ? `errno ${entry.errno}` : '', entry.sqlState ? `SQLSTATE ${entry.sqlState}` : '', entry.status && entry.status !== 500 ? `HTTP ${entry.status}` : ''].filter(Boolean).join('\n');
+        const cells = [
+          ['log-time', time && !Number.isNaN(time.getTime()) ? time.toLocaleString() : ''],
+          ['', entry.operation || ''],
+          ['', request],
+          ['error-code', code || '-'],
+          ['log-message', entry.message || ''],
+          ['log-sql', entry.sql || '']
+        ];
+        for (const [className, text] of cells) {
+          row.append(Object.assign(document.createElement('td'), { className, textContent: text }));
+        }
+        body.append(row);
+      }
+      grid.append(head, body);
+      scroll.append(grid);
+      errorLogElement.replaceChildren(scroll);
+    }
+
+    async function loadErrors() {
+      errorCountElement.textContent = '';
+      errorLogElement.replaceChildren(Object.assign(document.createElement('div'), { className: 'loading', textContent: 'Reading the error log...' }));
+      try {
+        const response = await fetch('/api/diagnostics/errors', { cache: 'no-store' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
+        errorCountElement.textContent = `${result.errors.length} ${result.errors.length === 1 ? 'entry' : 'entries'}`;
+        renderErrors(result.errors);
+      } catch (error) {
+        errorLogElement.replaceChildren(Object.assign(document.createElement('div'), { className: 'empty', textContent: `Could not read the error log: ${error.message}` }));
+      }
+    }
+
+    function refresh() {
+      loadErrors();
+      loadTables();
+    }
+
+    document.querySelector('#refresh').addEventListener('click', refresh);
+    refresh();
   </script>
 </body>
 </html>

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { closeDatabase, initializeDatabase, readDatabaseDiagnostics, readState, writeState } from './database.js';
+import { readErrors, recordError } from './errorlog.js';
 import * as dogsModule from './modules/dogs.js';
 import * as foodsModule from './modules/foods.js';
 import * as mealsModule from './modules/meals.js';
@@ -38,6 +39,7 @@ function readRequestJson(request) {
       }
     });
     request.on('end', () => {
+      request.bodyBytes = size;
       if (tooLarge) {
         const error = new Error('Request body is too large.');
         error.statusCode = 413;
@@ -68,10 +70,13 @@ function routeId(pathname, prefix) {
   }
 }
 
-function sendRouteError(response, error, message) {
-  if (response.headersSent) return;
+function sendRouteError(request, response, error, message) {
   const statusCode = error.statusCode || 500;
-  if (statusCode === 500) console.error(`${message}:`, error);
+  recordError(message, error, {
+    request: `${request.method} ${new URL(request.url, 'http://localhost').pathname}`,
+    bodyBytes: request.bodyBytes ?? null
+  });
+  if (response.headersSent) return;
   // Include the database error code (for example ER_BAD_FIELD_ERROR) so failures can be diagnosed from the browser.
   const detail = statusCode === 500 && error.code ? ` (${error.code})` : '';
   sendJson(response, statusCode, { error: statusCode === 500 ? `${message}${detail}.` : error.message });
@@ -90,8 +95,19 @@ const server = http.createServer(async (request, response) => {
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Referrer-Policy', 'no-referrer');
 
-  if ((pathname === '/diagnostics' || pathname === '/api/diagnostics') && !isLoopbackRequest(request)) {
+  if ((pathname === '/diagnostics' || pathname === '/api/diagnostics' || pathname === '/api/diagnostics/errors') && !isLoopbackRequest(request)) {
     sendJson(response, 403, { error: 'Database diagnostics are available only from this computer.' });
+    return;
+  }
+
+  // The error log does not need the database, so it stays readable when MariaDB is failing.
+  if (pathname === '/api/diagnostics/errors' && request.method === 'GET') {
+    try {
+      sendJson(response, 200, { errors: await readErrors() });
+    } catch (error) {
+      console.error('Unable to read the database error log:', error);
+      sendJson(response, 500, { error: 'Unable to read the database error log.' });
+    }
     return;
   }
 
@@ -99,8 +115,7 @@ const server = http.createServer(async (request, response) => {
     try {
       sendJson(response, 200, await readDatabaseDiagnostics());
     } catch (error) {
-      console.error('Unable to read database diagnostics:', error);
-      sendJson(response, 500, { error: 'Unable to read database diagnostics.' });
+      sendRouteError(request, response, error, 'Unable to read database diagnostics');
     }
     return;
   }
@@ -126,8 +141,7 @@ const server = http.createServer(async (request, response) => {
     try {
       sendJson(response, 200, await readState());
     } catch (error) {
-      console.error('Unable to read application data:', error);
-      sendJson(response, 500, { error: 'Unable to read application data.' });
+      sendRouteError(request, response, error, 'Unable to read application data');
     }
     return;
   }
@@ -142,7 +156,7 @@ const server = http.createServer(async (request, response) => {
       await writeState(state);
       sendJson(response, 200, { saved: true });
     } catch (error) {
-      sendRouteError(response, error, 'Unable to save application data');
+      sendRouteError(request, response, error, 'Unable to save application data');
     }
     return;
   }
@@ -158,8 +172,7 @@ const server = http.createServer(async (request, response) => {
       const dogs = await dogsModule.getDogs();
       sendJson(response, 200, dogs);
     } catch (error) {
-      console.error('Unable to read dogs:', error);
-      sendJson(response, 500, { error: 'Unable to read dogs.' });
+      sendRouteError(request, response, error, 'Unable to read dogs');
     }
     return;
   }
@@ -174,7 +187,7 @@ const server = http.createServer(async (request, response) => {
       await dogsModule.saveDog(dog);
       sendJson(response, 200, { saved: true });
     } catch (error) {
-      sendRouteError(response, error, 'Unable to save dog');
+      sendRouteError(request, response, error, 'Unable to save dog');
     }
     return;
   }
@@ -184,8 +197,7 @@ const server = http.createServer(async (request, response) => {
       await dogsModule.deleteDog(dogId);
       sendJson(response, 200, { deleted: true });
     } catch (error) {
-      console.error('Unable to delete dog:', error);
-      sendJson(response, 500, { error: 'Unable to delete dog.' });
+      sendRouteError(request, response, error, 'Unable to delete dog');
     }
     return;
   }
@@ -196,8 +208,7 @@ const server = http.createServer(async (request, response) => {
       const foods = await foodsModule.getFoods();
       sendJson(response, 200, foods);
     } catch (error) {
-      console.error('Unable to read foods:', error);
-      sendJson(response, 500, { error: 'Unable to read foods.' });
+      sendRouteError(request, response, error, 'Unable to read foods');
     }
     return;
   }
@@ -212,7 +223,7 @@ const server = http.createServer(async (request, response) => {
       await foodsModule.saveFood(food);
       sendJson(response, 200, { saved: true });
     } catch (error) {
-      sendRouteError(response, error, 'Unable to save food');
+      sendRouteError(request, response, error, 'Unable to save food');
     }
     return;
   }
@@ -222,8 +233,7 @@ const server = http.createServer(async (request, response) => {
       await foodsModule.deleteFood(foodId);
       sendJson(response, 200, { deleted: true });
     } catch (error) {
-      console.error('Unable to delete food:', error);
-      sendJson(response, 500, { error: 'Unable to delete food.' });
+      sendRouteError(request, response, error, 'Unable to delete food');
     }
     return;
   }
@@ -234,8 +244,7 @@ const server = http.createServer(async (request, response) => {
       const meals = await mealsModule.getMealsForDog(mealsDogId);
       sendJson(response, 200, meals);
     } catch (error) {
-      console.error('Unable to read meals:', error);
-      sendJson(response, 500, { error: 'Unable to read meals.' });
+      sendRouteError(request, response, error, 'Unable to read meals');
     }
     return;
   }
@@ -250,7 +259,7 @@ const server = http.createServer(async (request, response) => {
       await mealsModule.saveMealsForDog(mealsDogId, meals);
       sendJson(response, 200, { saved: true });
     } catch (error) {
-      sendRouteError(response, error, 'Unable to save meals');
+      sendRouteError(request, response, error, 'Unable to save meals');
     }
     return;
   }
@@ -260,8 +269,7 @@ const server = http.createServer(async (request, response) => {
       const plans = await mealsModule.getSavedPlans();
       sendJson(response, 200, plans);
     } catch (error) {
-      console.error('Unable to read plans:', error);
-      sendJson(response, 500, { error: 'Unable to read plans.' });
+      sendRouteError(request, response, error, 'Unable to read plans');
     }
     return;
   }
@@ -276,7 +284,7 @@ const server = http.createServer(async (request, response) => {
       await mealsModule.savePlan(plan);
       sendJson(response, 200, { saved: true });
     } catch (error) {
-      sendRouteError(response, error, 'Unable to save plan');
+      sendRouteError(request, response, error, 'Unable to save plan');
     }
     return;
   }
@@ -286,8 +294,7 @@ const server = http.createServer(async (request, response) => {
       await mealsModule.deletePlan(planId);
       sendJson(response, 200, { deleted: true });
     } catch (error) {
-      console.error('Unable to delete plan:', error);
-      sendJson(response, 500, { error: 'Unable to delete plan.' });
+      sendRouteError(request, response, error, 'Unable to delete plan');
     }
     return;
   }
@@ -323,7 +330,7 @@ async function startServer() {
     });
   } catch (error) {
     console.error('Unable to start DoggyFeed. Check the MariaDB service and database settings.');
-    console.error(error.message);
+    await recordError('Unable to start DoggyFeed', error);
     await closeDatabase().catch(() => {});
     process.exitCode = 1;
   }

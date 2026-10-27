@@ -127,7 +127,61 @@ function validState(state) {
     Array.isArray(state.savedPlans);
 }
 
-export async function replaceState(state) {
+// Limits match the column sizes in the schema. Cleaning the data first keeps one bad or oversized
+// value (for example from old browser storage) from making MariaDB reject the whole save.
+function text(value, maxLength) {
+  if (value === undefined || value === null || value === '') return null;
+  return String(value).slice(0, maxLength);
+}
+
+function amount(value, fallback, max) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(Math.max(number, 0), max) : fallback;
+}
+
+function uniqueById(items) {
+  const byId = new Map();
+  for (const item of Array.isArray(items) ? items : []) {
+    const id = text(item?.id, 80);
+    if (id) byId.set(id, item);
+  }
+  return [...byId.entries()];
+}
+
+function cleanItems(items) {
+  return (Array.isArray(items) ? items : [])
+    .filter(item => text(item?.foodId, 80))
+    .map(item => ({ foodId: text(item.foodId, 80), grams: amount(item.grams, 0, 99999999) }));
+}
+
+function cleanState(state) {
+  const meals = new Map();
+  for (const [dogId, items] of Object.entries(state.meals)) {
+    if (text(dogId, 80)) meals.set(text(dogId, 80), cleanItems(items));
+  }
+  return {
+    dogs: uniqueById(state.dogs).map(([id, dog]) => ({
+      id, name: text(dog.name, 100) || 'Dog', weight: amount(dog.weight, 0, 999999),
+      activity: amount(dog.activity, 1.6, 999) || 1.6, lifeStage: text(dog.age, 30) || 'Adult',
+      breed: text(dog.breed, 120), gender: text(dog.gender, 20), heat1: text(dog.heat1, 10), heat2: text(dog.heat2, 10),
+      photo: text(dog.photo, Infinity)
+    })),
+    foods: uniqueById(state.foods).map(([id, food]) => ({
+      id, name: text(food.name, 120) || 'Food', category: text(food.category, 50) || 'Other',
+      kcal: amount(food.kcal, 0, 99999999), protein: amount(food.protein, 0, 99999999),
+      fat: amount(food.fat, 0, 99999999), fiber: amount(food.fiber, 0, 99999999), image: text(food.image, Infinity)
+    })),
+    meals,
+    savedPlans: uniqueById(state.savedPlans).map(([id, plan]) => ({
+      id, name: text(plan.name, 120) || 'Plan', savedAt: text(plan.savedAt, 40), updatedAt: text(plan.updatedAt, 40),
+      items: cleanItems(plan.items)
+    })),
+    selectedDog: text(state.selectedDog, 255)
+  };
+}
+
+export async function replaceState(rawState) {
+  const state = cleanState(rawState);
   const connection = await getConnection();
   try {
     await connection.beginTransaction();
@@ -142,8 +196,8 @@ export async function replaceState(state) {
       await connection.query(
         `INSERT INTO dogs (id, name, weight, activity, life_stage, breed, gender, heat1, heat2, photo)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [dog.id, dog.name, Number(dog.weight) || 0, Number(dog.activity) || 1.6,
-          dog.age || 'Adult', dog.breed || null, dog.gender || null, dog.heat1 || null, dog.heat2 || null, dog.photo || null]
+        [dog.id, dog.name, dog.weight, dog.activity, dog.lifeStage,
+          dog.breed, dog.gender, dog.heat1, dog.heat2, dog.photo]
       );
     }
 
@@ -151,16 +205,15 @@ export async function replaceState(state) {
       await connection.query(
         `INSERT INTO foods (id, name, category, kcal, protein, fat, fiber, image)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [food.id, food.name, food.category || 'Other', Number(food.kcal) || 0,
-          Number(food.protein) || 0, Number(food.fat) || 0, Number(food.fiber) || 0, food.image || null]
+        [food.id, food.name, food.category, food.kcal, food.protein, food.fat, food.fiber, food.image]
       );
     }
 
-    for (const [dogId, items] of Object.entries(state.meals)) {
-      for (const [position, item] of (items || []).entries()) {
+    for (const [dogId, items] of state.meals) {
+      for (const [position, item] of items.entries()) {
         await connection.query(
           'INSERT INTO meal_items (dog_id, position, food_id, grams) VALUES (?, ?, ?, ?)',
-          [dogId, position, item.foodId, Number(item.grams) || 0]
+          [dogId, position, item.foodId, item.grams]
         );
       }
     }
@@ -168,12 +221,12 @@ export async function replaceState(state) {
     for (const plan of state.savedPlans) {
       await connection.query(
         'INSERT INTO saved_plans (id, name, saved_at, updated_at) VALUES (?, ?, ?, ?)',
-        [plan.id, plan.name, plan.savedAt || null, plan.updatedAt || null]
+        [plan.id, plan.name, plan.savedAt, plan.updatedAt]
       );
-      for (const [position, item] of (plan.items || []).entries()) {
+      for (const [position, item] of plan.items.entries()) {
         await connection.query(
           'INSERT INTO saved_plan_items (plan_id, position, food_id, grams) VALUES (?, ?, ?, ?)',
-          [plan.id, position, item.foodId, Number(item.grams) || 0]
+          [plan.id, position, item.foodId, item.grams]
         );
       }
     }
@@ -189,7 +242,8 @@ export async function replaceState(state) {
     );
     await connection.commit();
   } catch (error) {
-    await connection.rollback();
+    // A failed rollback (for example on a dropped connection) must not hide the original error.
+    await connection.rollback().catch(rollbackError => console.error('Rollback failed:', rollbackError.message));
     throw error;
   } finally {
     connection.release();
@@ -308,7 +362,7 @@ export async function readDatabaseDiagnostics() {
         rowCount: Number(rowCount),
         columns: columns.map(column => column.columnName),
         rows: rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => {
-          if (key === 'image' && typeof value === 'string' && value.startsWith('data:image/')) {
+          if ((key === 'image' || key === 'photo') && typeof value === 'string' && value.startsWith('data:image/')) {
             return [key, {
               type: 'image',
               preview: value,
