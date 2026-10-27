@@ -40,6 +40,11 @@ export async function deleteDog(id) {
   try {
     await connection.beginTransaction();
     await connection.query('DELETE FROM meal_items WHERE dog_id = ?', [id]);
+    await connection.query(
+      'DELETE FROM saved_plan_items WHERE plan_id IN (SELECT id FROM saved_plans WHERE dog_id = ?)',
+      [id]
+    );
+    await connection.query('DELETE FROM saved_plans WHERE dog_id = ?', [id]);
     await connection.query('DELETE FROM dogs WHERE id = ?', [id]);
     await connection.query(
       "DELETE FROM app_settings WHERE setting_key = 'selectedDog' AND setting_value = ?",

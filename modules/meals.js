@@ -41,7 +41,7 @@ export async function getSavedPlans() {
     const items = new Map(plans.map(plan => [plan.id, []]));
     for (const row of rows) items.get(row.plan_id)?.push({ foodId: row.food_id, grams: Number(row.grams) });
     return plans.map(plan => ({
-      id: plan.id, name: plan.name, savedAt: plan.saved_at, updatedAt: plan.updated_at,
+      id: plan.id, name: plan.name, savedAt: plan.saved_at, updatedAt: plan.updated_at, dogId: plan.dog_id || '',
       items: items.get(plan.id)
     }));
   } finally {
@@ -67,9 +67,10 @@ export async function savePlan(plan) {
   try {
     await connection.beginTransaction();
     await connection.query(
-      `INSERT INTO saved_plans (id, name, saved_at, updated_at) VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE name = VALUES(name), saved_at = VALUES(saved_at), updated_at = VALUES(updated_at)`,
-      [plan.id, plan.name, plan.savedAt || null, plan.updatedAt || null]
+      `INSERT INTO saved_plans (id, name, saved_at, updated_at, dog_id) VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE name = VALUES(name), saved_at = VALUES(saved_at), updated_at = VALUES(updated_at),
+       dog_id = VALUES(dog_id)`,
+      [plan.id, plan.name, plan.savedAt || null, plan.updatedAt || null, plan.dogId || null]
     );
     await connection.query('DELETE FROM saved_plan_items WHERE plan_id = ?', [plan.id]);
     for (const [position, item] of (plan.items || []).entries()) {

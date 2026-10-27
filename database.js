@@ -70,7 +70,8 @@ const schema = [
     id VARCHAR(80) NOT NULL PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
     saved_at VARCHAR(40) NULL,
-    updated_at VARCHAR(40) NULL
+    updated_at VARCHAR(40) NULL,
+    dog_id VARCHAR(80) NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS saved_plan_items (
     plan_id VARCHAR(80) NOT NULL,
@@ -92,7 +93,8 @@ const laterColumns = [
   ['dogs', 'photo', 'LONGTEXT NULL'],
   ['dogs', 'desired_weight', 'DECIMAL(8,2) NULL'],
   ['dogs', 'meals_per_day', 'INT NOT NULL DEFAULT 1'],
-  ['foods', 'image', 'LONGTEXT NULL']
+  ['foods', 'image', 'LONGTEXT NULL'],
+  ['saved_plans', 'dog_id', 'VARCHAR(80) NULL']
 ];
 
 async function addMissingColumns(connection) {
@@ -181,7 +183,7 @@ function cleanState(state) {
     meals,
     savedPlans: uniqueById(state.savedPlans).map(([id, plan]) => ({
       id, name: text(plan.name, 120) || 'Plan', savedAt: text(plan.savedAt, 40), updatedAt: text(plan.updatedAt, 40),
-      items: cleanItems(plan.items)
+      dogId: text(plan.dogId, 80), items: cleanItems(plan.items)
     })),
     selectedDog: text(state.selectedDog, 255)
   };
@@ -227,8 +229,8 @@ export async function replaceState(rawState) {
 
     for (const plan of state.savedPlans) {
       await connection.query(
-        'INSERT INTO saved_plans (id, name, saved_at, updated_at) VALUES (?, ?, ?, ?)',
-        [plan.id, plan.name, plan.savedAt, plan.updatedAt]
+        'INSERT INTO saved_plans (id, name, saved_at, updated_at, dog_id) VALUES (?, ?, ?, ?, ?)',
+        [plan.id, plan.name, plan.savedAt, plan.updatedAt, plan.dogId]
       );
       for (const [position, item] of plan.items.entries()) {
         await connection.query(
@@ -324,7 +326,7 @@ export async function readState() {
       foods: foods.map(toFood),
       meals,
       savedPlans: plans.map(plan => ({
-        id: plan.id, name: plan.name, savedAt: plan.saved_at, updatedAt: plan.updated_at,
+        id: plan.id, name: plan.name, savedAt: plan.saved_at, updatedAt: plan.updated_at, dogId: plan.dog_id || '',
         items: planItems.get(plan.id) || []
       })),
       selectedDog: settings.find(setting => setting.setting_key === 'selectedDog')?.setting_value || ''
