@@ -150,7 +150,7 @@
             formGrid.insertAdjacentHTML('afterbegin', photoField);
 
             // Put the fields in a fixed order; the gender, heat and photo fields are added by separate steps.
-            for (const id of ['d-photo', 'd-name', 'd-weight', 'd-desired-weight', 'd-meals', 'd-activity', 'd-breed', 'd-age', 'd-gender', 'd-heat1', 'd-heat2']) {
+            for (const id of ['d-photo', 'd-name', 'd-breed', 'd-weight', 'd-desired-weight', 'd-meals', 'd-activity', 'd-age', 'd-gender', 'd-heat1', 'd-heat2']) {
               const field = document.getElementById(id)?.closest('.field');
               if (field) formGrid.append(field);
             }
