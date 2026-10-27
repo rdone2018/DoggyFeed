@@ -263,7 +263,19 @@ export async function replaceState(rawState) {
     await connection.query(
       "INSERT INTO app_settings (setting_key, setting_value) VALUES ('hasApplicationState', '1') ON DUPLICATE KEY UPDATE setting_value = '1'"
     );
+    // Every save gets a higher revision, so the browser can tell when it is shown older data.
+    await connection.query(
+      `INSERT INTO app_settings (setting_key, setting_value) VALUES ('stateRevision', '1')
+       ON DUPLICATE KEY UPDATE setting_value = CAST(setting_value AS UNSIGNED) + 1`
+    );
+    const [revisionRow] = await connection.query("SELECT setting_value FROM app_settings WHERE setting_key = 'stateRevision'");
     await connection.commit();
+    return {
+      revision: Number(revisionRow?.setting_value) || 0,
+      dogs: state.dogs.length,
+      foods: state.foods.length,
+      plans: state.savedPlans.length
+    };
   } catch (error) {
     // A failed rollback (for example on a dropped connection) must not hide the original error.
     await connection.rollback().catch(rollbackError => console.error('Rollback failed:', rollbackError.message));
@@ -318,7 +330,7 @@ export async function readState() {
       connection.query('SELECT * FROM meal_items ORDER BY dog_id, position'),
       connection.query('SELECT * FROM saved_plans ORDER BY name'),
       connection.query('SELECT * FROM saved_plan_items ORDER BY plan_id, position'),
-      connection.query("SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('selectedDog', 'hasApplicationState')")
+      connection.query("SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('selectedDog', 'hasApplicationState', 'stateRevision')")
     ]);
 
     if (!settings.some(setting => setting.setting_key === 'hasApplicationState')) return null;
@@ -343,7 +355,8 @@ export async function readState() {
         id: plan.id, name: plan.name, savedAt: plan.saved_at, updatedAt: plan.updated_at, dogId: plan.dog_id || '',
         items: planItems.get(plan.id) || []
       })),
-      selectedDog: settings.find(setting => setting.setting_key === 'selectedDog')?.setting_value || ''
+      selectedDog: settings.find(setting => setting.setting_key === 'selectedDog')?.setting_value || '',
+      revision: Number(settings.find(setting => setting.setting_key === 'stateRevision')?.setting_value) || 0
     };
   } finally {
     connection.release();

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { closeDatabase, initializeDatabase, readDatabaseDiagnostics, readState, writeState } from './database.js';
-import { readErrors, recordError } from './errorlog.js';
+import { readErrors, readSaves, recordError, recordSave } from './errorlog.js';
 import * as dogsModule from './modules/dogs.js';
 import * as foodsModule from './modules/foods.js';
 import * as mealsModule from './modules/meals.js';
@@ -11,10 +11,23 @@ import * as mealsModule from './modules/meals.js';
 const root = path.dirname(fileURLToPath(import.meta.url));
 const maxBodyBytes = 20 * 1024 * 1024;
 
+// Identifies this running server on the diagnostics page, to tell apart two copies of DoggyFeed.
+const serverInfo = {
+  startedAt: new Date().toISOString(),
+  processId: process.pid,
+  folder: root,
+  database: `${process.env.DB_NAME || 'doggyfeed'} on ${process.env.DB_HOST || 'localhost'}:${Number(process.env.DB_PORT) || 3306}`
+};
+
 function sendJson(response, statusCode, value) {
+  // Proxies and CDNs in front of DoggyFeed must never serve stored API answers, or reloads show old data.
   response.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, private, max-age=0',
+    'CDN-Cache-Control': 'no-store',
+    'Surrogate-Control': 'no-store',
+    'Pragma': 'no-cache',
+    'Expires': '0',
     'X-Content-Type-Options': 'nosniff'
   });
   response.end(JSON.stringify(value));
@@ -103,7 +116,8 @@ const server = http.createServer(async (request, response) => {
   // The error log does not need the database, so it stays readable when MariaDB is failing.
   if (pathname === '/api/diagnostics/errors' && request.method === 'GET') {
     try {
-      sendJson(response, 200, { errors: await readErrors() });
+      const [errors, saves] = await Promise.all([readErrors(), readSaves()]);
+      sendJson(response, 200, { errors, saves, server: serverInfo });
     } catch (error) {
       console.error('Unable to read the database error log:', error);
       sendJson(response, 500, { error: 'Unable to read the database error log.' });
@@ -170,8 +184,16 @@ const server = http.createServer(async (request, response) => {
         sendJson(response, 400, { error: 'Application data has an invalid format.' });
         return;
       }
-      await writeState(state);
-      sendJson(response, 200, { saved: true });
+      const result = await writeState(state);
+      await recordSave({
+        ...result,
+        bodyBytes: request.bodyBytes ?? null,
+        host: request.headers.host || null,
+        forwardedFor: request.headers['x-forwarded-for'] || null,
+        forwardedHost: request.headers['x-forwarded-host'] || null,
+        client: request.socket.remoteAddress || null
+      });
+      sendJson(response, 200, { saved: true, ...result });
     } catch (error) {
       sendRouteError(request, response, error, 'Unable to save application data');
     }

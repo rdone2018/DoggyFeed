@@ -3,7 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const logFile = path.join(root, 'data', 'database-errors.log');
+const errorLogFile = path.join(root, 'data', 'database-errors.log');
+const saveLogFile = path.join(root, 'data', 'database-saves.log');
 const maxEntries = 100;
 const maxTextLength = 600;
 
@@ -13,8 +14,36 @@ function shorten(value) {
   return text.length > maxTextLength ? `${text.slice(0, maxTextLength)}... (${text.length} characters)` : text;
 }
 
-// Records an error and its database details as one JSON line in data/database-errors.log,
-// so the log survives restarts. A failure to write the log is reported but never thrown.
+// Each log keeps one JSON object per line in the data folder, so it survives restarts.
+// A failure to write a log is reported but never thrown.
+async function appendEntry(file, entry) {
+  try {
+    await mkdir(path.dirname(file), { recursive: true });
+    await appendFile(file, `${JSON.stringify(entry)}\n`, 'utf8');
+  } catch (logError) {
+    console.error(`Unable to write ${path.basename(file)}:`, logError.message);
+  }
+}
+
+// Returns the most recent entries, newest first.
+async function readEntries(file) {
+  let content;
+  try {
+    content = await readFile(file, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  }
+  return content.split('\n').filter(line => line.trim()).slice(-maxEntries).reverse().map(line => {
+    try {
+      return JSON.parse(line);
+    } catch {
+      return { message: shorten(line) };
+    }
+  });
+}
+
+// Records an error and its database details.
 export async function recordError(operation, error, details = {}) {
   const entry = {
     time: new Date().toISOString(),
@@ -28,29 +57,20 @@ export async function recordError(operation, error, details = {}) {
     ...details
   };
   console.error(`${operation}:`, error);
-  try {
-    await mkdir(path.dirname(logFile), { recursive: true });
-    await appendFile(logFile, `${JSON.stringify(entry)}\n`, 'utf8');
-  } catch (logError) {
-    console.error('Unable to write the database error log:', logError.message);
-  }
+  await appendEntry(errorLogFile, entry);
   return entry;
 }
 
-// Returns the most recent entries, newest first.
-export async function readErrors() {
-  let content;
-  try {
-    content = await readFile(logFile, 'utf8');
-  } catch (error) {
-    if (error.code === 'ENOENT') return [];
-    throw error;
-  }
-  return content.split('\n').filter(line => line.trim()).slice(-maxEntries).reverse().map(line => {
-    try {
-      return JSON.parse(line);
-    } catch {
-      return { message: shorten(line) };
-    }
-  });
+// Records a successful save, including where the request came from, so it is clear which
+// address and proxy reach this server.
+export async function recordSave(details) {
+  await appendEntry(saveLogFile, { time: new Date().toISOString(), ...details });
+}
+
+export function readErrors() {
+  return readEntries(errorLogFile);
+}
+
+export function readSaves() {
+  return readEntries(saveLogFile);
 }
