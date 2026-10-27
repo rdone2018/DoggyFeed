@@ -21,7 +21,7 @@ The app stores dog profiles, foods and pictures, meal contents, saved plans, and
 
 ## Features
 
-- Keep individual dog profiles, weights, life stages, and activity estimates.
+- Keep individual dog profiles, weights, desired weights, meals per day, life stages, and activity estimates. The bowl energy reference uses the desired weight when set and is split across the meals per day.
 - Maintain a food library with energy, protein, fat, and fiber values per 100 g.
 - Add foods and serving amounts to each dog's bowl to calculate nutrition totals.
 - Save named meal plans and load them into any dog's bowl for reuse.

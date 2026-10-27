@@ -44,7 +44,9 @@ const schema = [
     gender VARCHAR(20) NULL,
     heat1 VARCHAR(10) NULL,
     heat2 VARCHAR(10) NULL,
-    photo LONGTEXT NULL
+    photo LONGTEXT NULL,
+    desired_weight DECIMAL(8,2) NULL,
+    meals_per_day INT NOT NULL DEFAULT 1
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS foods (
     id VARCHAR(80) NOT NULL PRIMARY KEY,
@@ -88,6 +90,8 @@ const laterColumns = [
   ['dogs', 'heat1', 'VARCHAR(10) NULL'],
   ['dogs', 'heat2', 'VARCHAR(10) NULL'],
   ['dogs', 'photo', 'LONGTEXT NULL'],
+  ['dogs', 'desired_weight', 'DECIMAL(8,2) NULL'],
+  ['dogs', 'meals_per_day', 'INT NOT NULL DEFAULT 1'],
   ['foods', 'image', 'LONGTEXT NULL']
 ];
 
@@ -110,7 +114,9 @@ export function toDog(dog) {
   return {
     id: dog.id, name: dog.name, weight: Number(dog.weight), activity: Number(dog.activity),
     age: dog.life_stage, breed: dog.breed || '', gender: dog.gender || '',
-    heat1: dog.heat1 || '', heat2: dog.heat2 || '', photo: dog.photo || ''
+    heat1: dog.heat1 || '', heat2: dog.heat2 || '', photo: dog.photo || '',
+    desiredWeight: dog.desired_weight === null || dog.desired_weight === undefined ? '' : Number(dog.desired_weight),
+    mealsPerDay: Number(dog.meals_per_day) || 1
   };
 }
 
@@ -164,7 +170,8 @@ function cleanState(state) {
       id, name: text(dog.name, 100) || 'Dog', weight: amount(dog.weight, 0, 999999),
       activity: amount(dog.activity, 1.6, 999) || 1.6, lifeStage: text(dog.age, 30) || 'Adult',
       breed: text(dog.breed, 120), gender: text(dog.gender, 20), heat1: text(dog.heat1, 10), heat2: text(dog.heat2, 10),
-      photo: text(dog.photo, Infinity)
+      photo: text(dog.photo, Infinity), desiredWeight: Number(dog.desiredWeight) > 0 ? amount(dog.desiredWeight, null, 999999) : null,
+      mealsPerDay: Math.round(amount(dog.mealsPerDay, 1, 10)) || 1
     })),
     foods: uniqueById(state.foods).map(([id, food]) => ({
       id, name: text(food.name, 120) || 'Food', category: text(food.category, 50) || 'Other',
@@ -194,10 +201,10 @@ export async function replaceState(rawState) {
 
     for (const dog of state.dogs) {
       await connection.query(
-        `INSERT INTO dogs (id, name, weight, activity, life_stage, breed, gender, heat1, heat2, photo)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO dogs (id, name, weight, activity, life_stage, breed, gender, heat1, heat2, photo, desired_weight, meals_per_day)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [dog.id, dog.name, dog.weight, dog.activity, dog.lifeStage,
-          dog.breed, dog.gender, dog.heat1, dog.heat2, dog.photo]
+          dog.breed, dog.gender, dog.heat1, dog.heat2, dog.photo, dog.desiredWeight, dog.mealsPerDay]
       );
     }
 
