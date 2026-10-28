@@ -67,6 +67,7 @@ const schema = [
     position INT NOT NULL,
     food_id VARCHAR(80) NOT NULL,
     grams DECIMAL(10,2) NOT NULL DEFAULT 0,
+    auto_fill TINYINT(1) NOT NULL DEFAULT 0,
     PRIMARY KEY (dog_id, position),
     INDEX meal_items_food_id (food_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
@@ -82,6 +83,7 @@ const schema = [
     position INT NOT NULL,
     food_id VARCHAR(80) NOT NULL,
     grams DECIMAL(10,2) NOT NULL DEFAULT 0,
+    auto_fill TINYINT(1) NOT NULL DEFAULT 0,
     PRIMARY KEY (plan_id, position),
     INDEX saved_plan_items_food_id (food_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
@@ -143,7 +145,9 @@ const laterColumns = [
   ['saved_plans', 'dog_id', 'VARCHAR(80) NULL'],
   ['served_meals', 'plan_name', 'VARCHAR(120) NULL'],
   ['weight_history', 'daily_energy', 'DECIMAL(10,2) NULL'],
-  ['weight_history', 'daily_energy_custom', 'TINYINT(1) NULL']
+  ['weight_history', 'daily_energy_custom', 'TINYINT(1) NULL'],
+  ['meal_items', 'auto_fill', 'TINYINT(1) NOT NULL DEFAULT 0'],
+  ['saved_plan_items', 'auto_fill', 'TINYINT(1) NOT NULL DEFAULT 0']
 ];
 
 async function addMissingColumns(connection) {
@@ -209,7 +213,7 @@ function uniqueById(items) {
 function cleanItems(items) {
   return (Array.isArray(items) ? items : [])
     .filter(item => text(item?.foodId, 80))
-    .map(item => ({ foodId: text(item.foodId, 80), grams: amount(item.grams, 0, 99999999) }));
+    .map(item => ({ foodId: text(item.foodId, 80), grams: amount(item.grams, 0, 99999999), auto: item.auto === true ? 1 : 0 }));
 }
 
 function cleanState(state) {
@@ -313,8 +317,8 @@ export async function replaceState(rawState, baseRevision = null) {
     for (const [dogId, items] of state.meals) {
       for (const [position, item] of items.entries()) {
         await connection.query(
-          'INSERT INTO meal_items (dog_id, position, food_id, grams) VALUES (?, ?, ?, ?)',
-          [dogId, position, item.foodId, item.grams]
+          'INSERT INTO meal_items (dog_id, position, food_id, grams, auto_fill) VALUES (?, ?, ?, ?, ?)',
+          [dogId, position, item.foodId, item.grams, item.auto]
         );
       }
     }
@@ -326,8 +330,8 @@ export async function replaceState(rawState, baseRevision = null) {
       );
       for (const [position, item] of plan.items.entries()) {
         await connection.query(
-          'INSERT INTO saved_plan_items (plan_id, position, food_id, grams) VALUES (?, ?, ?, ?)',
-          [plan.id, position, item.foodId, item.grams]
+          'INSERT INTO saved_plan_items (plan_id, position, food_id, grams, auto_fill) VALUES (?, ?, ?, ?, ?)',
+          [plan.id, position, item.foodId, item.grams, item.auto]
         );
       }
     }
@@ -425,13 +429,13 @@ export async function readState() {
     const meals = {};
     for (const row of mealRows) {
       meals[row.dog_id] ||= [];
-      meals[row.dog_id].push({ foodId: row.food_id, grams: Number(row.grams) });
+      meals[row.dog_id].push({ foodId: row.food_id, grams: Number(row.grams), auto: Boolean(row.auto_fill) });
     }
     for (const dog of dogs) meals[dog.id] ||= [];
 
     const planItems = new Map(plans.map(plan => [plan.id, []]));
     for (const row of planRows) {
-      planItems.get(row.plan_id)?.push({ foodId: row.food_id, grams: Number(row.grams) });
+      planItems.get(row.plan_id)?.push({ foodId: row.food_id, grams: Number(row.grams), auto: Boolean(row.auto_fill) });
     }
 
     return {

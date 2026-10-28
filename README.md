@@ -29,7 +29,7 @@ The app stores dog profiles, foods and pictures, meal contents, saved plans, and
 - Keep a weight history: each saved change to a dog's weight or desired weight is stored with its date, and the Weight history view (linked below the dog form) charts the last 12 months.
 - Import weight and daily energy history from a CSV file in the Weight history view. The file needs a header row with `date` and `weight`, and may add `desired_weight`, `daily_energy`, and `daily_energy_custom` (yes/no). Dates can be `YYYY-MM-DD` or `DD.MM.YYYY`; comma, semicolon, or tab separators and decimal commas are accepted. A row for a day that already has an entry replaces it. Use the CSV template button for an example.
 - Maintain a food library with energy, protein, fat, and fiber values per 100 g.
-- Add foods and serving amounts to each dog's bowl to calculate nutrition totals.
+- Add foods and serving amounts to each dog's bowl to calculate nutrition totals. A food in the "Dry food" category fills the energy the other foods leave below the bowl target, and its amount updates as the bowl changes; typing an amount for it, or using its Auto-fill button, turns this off.
 - Save named meal plans and load them into any dog's bowl for reuse.
 - Save profiles, foods, and meal plans to MariaDB through the Node server.
 
