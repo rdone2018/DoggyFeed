@@ -36,10 +36,18 @@ async function serverCodeFingerprint() {
 }
 let startupFingerprint = '';
 
+// Returns the number of bytes sent. Larger answers (the app data carries the pictures) are gzip-compressed
+// when the browser accepts it.
 function sendJson(response, statusCode, value) {
+  const json = Buffer.from(JSON.stringify(value) ?? 'null');
+  const gzip = json.length > 1024 && /\bgzip\b/.test(response.req?.headers['accept-encoding'] || '');
+  const body = gzip ? gzipSync(json) : json;
   // Proxies and CDNs in front of DoggyFeed must never serve stored API answers, or reloads show old data.
   response.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': body.length,
+    'Vary': 'Accept-Encoding',
+    ...(gzip ? { 'Content-Encoding': 'gzip' } : {}),
     'Cache-Control': 'no-store, no-cache, must-revalidate, private, max-age=0',
     'CDN-Cache-Control': 'no-store',
     'Surrogate-Control': 'no-store',
@@ -47,7 +55,8 @@ function sendJson(response, statusCode, value) {
     'Expires': '0',
     'X-Content-Type-Options': 'nosniff'
   });
-  response.end(JSON.stringify(value));
+  response.end(body);
+  return body.length;
 }
 
 function isLoopbackRequest(request) {
@@ -177,9 +186,9 @@ const server = http.createServer(async (request, response) => {
       const report = await readRequestJson(request, 16 * 1024);
       const error = new Error(String(report?.message || 'Unknown browser error'));
       error.statusCode = Number(report?.status) || null;
-      const startup = report?.kind === 'startup';
-      await recordError(startup ? 'Page start failed' : 'Browser save failed', error, {
-        request: startup ? 'Page load (reported by the browser)' : 'Save to /api/state (reported by the browser)',
+      const kind = { startup: ['Page start failed', 'Page load'], load: ['Slow or failed data load', 'Load from /api/state'] }[report?.kind] || ['Browser save failed', 'Save to /api/state'];
+      await recordError(kind[0], error, {
+        request: `${kind[1]} (reported by the browser)`,
         bodyBytes: Number(report?.bodyBytes) || null
       });
       sendJson(response, 200, { recorded: true });
@@ -200,8 +209,20 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/state' && request.method === 'GET') {
+    // Loads taking over 5 seconds are logged, split into the MariaDB read and sending the answer, to tell a slow
+    // database from a slow connection to the browser.
+    const started = Date.now();
     try {
-      sendJson(response, 200, await readState());
+      const state = await readState();
+      const readMs = Date.now() - started;
+      const bytes = sendJson(response, 200, state);
+      response.once('close', () => {
+        const totalMs = Date.now() - started;
+        if (totalMs <= 5000) return;
+        const error = new Error(`Loading the data took ${(totalMs / 1000).toFixed(1)} s: reading MariaDB ${(readMs / 1000).toFixed(1)} s, sending ${Math.round(bytes / 1024)} KB ${((totalMs - readMs) / 1000).toFixed(1)} s${response.writableFinished ? '' : ' (not finished, the browser closed the connection)'}`);
+        error.statusCode = 200;
+        recordError('Slow data load', error, { request: 'GET /api/state', bodyBytes: bytes }).catch(() => {});
+      });
     } catch (error) {
       sendRouteError(request, response, error, 'Unable to read application data');
     }
