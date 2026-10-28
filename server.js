@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 import { closeDatabase, initializeDatabase, readDatabaseDiagnostics, readRevision, readState, writeState } from './database.js';
 import { readErrors, readSaves, recordError, recordSave } from './errorlog.js';
 import * as dogsModule from './modules/dogs.js';
@@ -176,8 +177,9 @@ const server = http.createServer(async (request, response) => {
       const report = await readRequestJson(request, 16 * 1024);
       const error = new Error(String(report?.message || 'Unknown browser error'));
       error.statusCode = Number(report?.status) || null;
-      await recordError('Browser save failed', error, {
-        request: 'Save to /api/state (reported by the browser)',
+      const startup = report?.kind === 'startup';
+      await recordError(startup ? 'Page start failed' : 'Browser save failed', error, {
+        request: startup ? 'Page load (reported by the browser)' : 'Save to /api/state (reported by the browser)',
         bodyBytes: Number(report?.bodyBytes) || null
       });
       sendJson(response, 200, { recorded: true });
@@ -442,13 +444,20 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
     try {
+      // Compressed when the browser accepts it: the page is about a quarter of the size, so a slow or
+      // unsteady connection (such as a phone's first one) is less likely to stall before the app script.
       const html = await readFile(path.join(root, 'index.html'));
+      const gzip = /\bgzip\b/.test(request.headers['accept-encoding'] || '');
+      const body = gzip ? gzipSync(html) : html;
       response.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8',
+        'Content-Length': body.length,
         'Cache-Control': 'no-cache',
-        'X-Content-Type-Options': 'nosniff'
+        'Vary': 'Accept-Encoding',
+        'X-Content-Type-Options': 'nosniff',
+        ...(gzip ? { 'Content-Encoding': 'gzip' } : {})
       });
-      response.end(html);
+      response.end(body);
     } catch (error) {
       console.error('Unable to serve the application:', error);
       response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
