@@ -141,10 +141,10 @@ export async function recordServedMeal(meal) {
   try {
     await connection.beginTransaction();
     await connection.query(
-      `INSERT INTO served_meals (id, dog_id, dog_name, served_at, meals_per_day, target_kcal, kcal, protein, fat, fiber)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO served_meals (id, dog_id, dog_name, served_at, plan_name, meals_per_day, target_kcal, kcal, protein, fat, fiber)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, servedText(meal.dogId, 80), servedText(meal.dogName || 'Dog', 100),
-        Number.isNaN(servedAt.getTime()) ? new Date() : servedAt,
+        Number.isNaN(servedAt.getTime()) ? new Date() : servedAt, servedText(meal.planName, 120) || null,
         Number(meal.mealsPerDay) > 0 ? Math.round(Number(meal.mealsPerDay)) : null,
         Number(meal.targetKcal) > 0 ? servedAmount(meal.targetKcal) : null,
         total('kcal'), total('protein'), total('fat'), total('fiber')]
@@ -163,6 +163,42 @@ export async function recordServedMeal(meal) {
   } catch (error) {
     await connection.rollback().catch(() => {});
     throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+// Returns a dog's served bowls with their foods, from (inclusive) to (exclusive), oldest first.
+export async function getServedMeals(dogId, from, to) {
+  const connection = await getConnection();
+  try {
+    const meals = await connection.query(
+      `SELECT * FROM served_meals WHERE dog_id = ? AND served_at >= ? AND served_at < ? ORDER BY served_at`,
+      [dogId, from, to]
+    );
+    const items = new Map(meals.map(meal => [meal.id, []]));
+    if (meals.length) {
+      const rows = await connection.query(
+        `SELECT * FROM served_meal_items WHERE served_meal_id IN (${meals.map(() => '?').join(', ')})
+         ORDER BY served_meal_id, position`,
+        meals.map(meal => meal.id)
+      );
+      for (const row of rows) {
+        items.get(row.served_meal_id)?.push({
+          foodId: row.food_id, foodName: row.food_name, category: row.category, grams: Number(row.grams),
+          kcal: Number(row.kcal), protein: Number(row.protein), fat: Number(row.fat), fiber: Number(row.fiber)
+        });
+      }
+    }
+    return meals.map(meal => ({
+      id: meal.id,
+      servedAt: new Date(meal.served_at).toISOString(),
+      planName: meal.plan_name || '',
+      mealsPerDay: meal.meals_per_day === null ? null : Number(meal.meals_per_day),
+      targetKcal: meal.target_kcal === null ? null : Number(meal.target_kcal),
+      kcal: Number(meal.kcal), protein: Number(meal.protein), fat: Number(meal.fat), fiber: Number(meal.fiber),
+      items: items.get(meal.id) || []
+    }));
   } finally {
     connection.release();
   }

@@ -303,6 +303,22 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  if (pathname === '/api/served-meals' && request.method === 'GET') {
+    try {
+      const query = new URL(request.url, 'http://localhost').searchParams;
+      const from = new Date(query.get('from'));
+      const to = new Date(query.get('to'));
+      if (!query.get('dogId') || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to <= from) {
+        sendJson(response, 400, { error: 'Served bowls need a dog and a valid date range.' });
+        return;
+      }
+      sendJson(response, 200, { meals: await mealsModule.getServedMeals(query.get('dogId'), from, to) });
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to read served bowls');
+    }
+    return;
+  }
+
   if (pathname === '/api/served-meals' && request.method === 'POST') {
     try {
       const meal = await readRequestJson(request, 512 * 1024);

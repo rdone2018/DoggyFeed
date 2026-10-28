@@ -98,6 +98,7 @@ const schema = [
     dog_id VARCHAR(80) NOT NULL,
     dog_name VARCHAR(100) NOT NULL,
     served_at DATETIME(3) NOT NULL,
+    plan_name VARCHAR(120) NULL,
     meals_per_day INT NULL,
     target_kcal DECIMAL(10,2) NULL,
     kcal DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -134,7 +135,8 @@ const laterColumns = [
   ['dogs', 'meals_per_day', 'INT NOT NULL DEFAULT 1'],
   ['dogs', 'daily_energy', 'DECIMAL(10,2) NULL'],
   ['foods', 'image', 'LONGTEXT NULL'],
-  ['saved_plans', 'dog_id', 'VARCHAR(80) NULL']
+  ['saved_plans', 'dog_id', 'VARCHAR(80) NULL'],
+  ['served_meals', 'plan_name', 'VARCHAR(120) NULL']
 ];
 
 async function addMissingColumns(connection) {
