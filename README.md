@@ -15,6 +15,8 @@ npm start
 
 Place the database settings in `/etc/doggyfeed/doggyfeed.env` before starting the app. Use `.env.example` as the template and restrict access to the file (for example, `chmod 600 /etc/doggyfeed/doggyfeed.env`). The app reads this path before creating its MariaDB connection pool. If that file is missing, for example on Windows, the app falls back to a `.env` file in the project folder (ignored by Git). To use a different env file, set `DOGGYFEED_ENV_FILE`. Open `http://127.0.0.1:3000`. For automatic restarts during development, run `npm run dev`.
 
+After updating DoggyFeed (for example with `git pull`), restart the server. The page is read fresh on every visit, but the server code and database changes only load when the server starts. Until then, saves may not reach the database, and the page shows a "Restart the DoggyFeed server" warning.
+
 If DoggyFeed runs behind a reverse proxy such as nginx, allow request bodies of a few megabytes (for example `client_max_body_size 20m;`) so new dog photos and food pictures can be saved. Pictures already stored are not sent again with later saves.
 
 Open `http://127.0.0.1:3000/diagnostics` to inspect database tables, row counts, columns, and stored values. This read-only page is restricted to requests from the local computer.

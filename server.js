@@ -1,5 +1,6 @@
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { closeDatabase, initializeDatabase, readDatabaseDiagnostics, readState, writeState } from './database.js';
@@ -18,6 +19,21 @@ const serverInfo = {
   folder: root,
   database: `${process.env.DB_NAME || 'doggyfeed'} on ${process.env.DB_HOST || 'localhost'}:${Number(process.env.DB_PORT) || 3306}`
 };
+
+// The page is read from disk on every request, but the server code only loads at startup. After a git pull
+// without a restart, new pages talk to old server code and their saves can fail. A fingerprint of the server
+// files taken at startup lets the page warn when the files on disk have changed since.
+async function serverCodeFingerprint() {
+  const modules = (await readdir(path.join(root, 'modules')).catch(() => []))
+    .filter(name => name.endsWith('.js')).map(name => `modules/${name}`);
+  const hash = createHash('sha256');
+  for (const file of ['server.js', 'database.js', 'errorlog.js', ...modules].sort()) {
+    hash.update(file);
+    hash.update(await readFile(path.join(root, file)).catch(() => Buffer.from('missing')));
+  }
+  return hash.digest('hex').slice(0, 16);
+}
+let startupFingerprint = '';
 
 function sendJson(response, statusCode, value) {
   // Proxies and CDNs in front of DoggyFeed must never serve stored API answers, or reloads show old data.
@@ -164,6 +180,16 @@ const server = http.createServer(async (request, response) => {
       sendJson(response, 200, { recorded: true });
     } catch {
       sendJson(response, 400, { error: 'Invalid error report.' });
+    }
+    return;
+  }
+
+  if (pathname === '/api/server-status' && request.method === 'GET') {
+    try {
+      const current = await serverCodeFingerprint();
+      sendJson(response, 200, { startedAt: serverInfo.startedAt, restartNeeded: Boolean(startupFingerprint) && current !== startupFingerprint });
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to check the server code');
     }
     return;
   }
@@ -394,6 +420,7 @@ const host = process.env.HOST || '127.0.0.1';
 
 async function startServer() {
   try {
+    startupFingerprint = await serverCodeFingerprint();
     await initializeDatabase();
     server.listen(port, host, () => {
       console.log(`DoggyFeed is running at http://${host}:${port}`);
