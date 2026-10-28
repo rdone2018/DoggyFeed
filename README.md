@@ -31,7 +31,7 @@ The app stores dog profiles, foods and pictures, meal contents, saved plans, and
 - Import foods into the food library from a CSV file with the Import CSV button. The file needs a header row with `name` and `kcal`, and may add `category`, `protein`, `fat`, and `fiber` (all per 100 g), plus `manufacturer_url` and `shop_url` web links (http or https). A link column left empty clears that food's link; a file without link columns keeps existing links. A row whose name matches a food in the library updates it and keeps its picture; unknown categories become Other. Use the CSV template button for an example.
 - Maintain a food library with energy, protein, fat, and fiber values per 100 g.
 - Add foods and serving amounts to each dog's bowl to calculate nutrition totals. A food in the "Dry food" category fills the energy the other foods leave below the bowl target, and its amount updates as the bowl changes; typing an amount for it, or using its Auto-fill button, turns this off.
-- Save named meal plans and load them into any dog's bowl for reuse.
+- Save a dog's bowl as a meal plan with Save plan, and load it into the bowl again for reuse. A plan is named after the dog and the first food in the bowl (for example "Milo – Chicken kibble"); saving a bowl whose plan name already exists asks to replace that plan.
 - Save profiles, foods, and meal plans to MariaDB through the Node server.
 
 The starter foods are sample entries. Verify nutrition values against product labels or a trusted database. The energy reference is a rough estimate, not a feeding prescription or veterinary advice. The server binds to `127.0.0.1` by default; set `HOST` or `PORT` to override it.
