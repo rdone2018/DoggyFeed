@@ -174,7 +174,7 @@ const server = http.createServer(async (request, response) => {
       const error = new Error(String(report?.message || 'Unknown browser error'));
       error.statusCode = Number(report?.status) || null;
       await recordError('Browser save failed', error, {
-        request: 'PUT /api/state (reported by the browser)',
+        request: 'Save to /api/state (reported by the browser)',
         bodyBytes: Number(report?.bodyBytes) || null
       });
       sendJson(response, 200, { recorded: true });
@@ -203,7 +203,8 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (pathname === '/api/state' && request.method === 'PUT') {
+  // The page saves with POST, because some proxies and hosting firewalls block PUT. PUT stays for older pages.
+  if (pathname === '/api/state' && (request.method === 'POST' || request.method === 'PUT')) {
     try {
       const state = await readRequestJson(request);
       if (!isValidState(state)) {
