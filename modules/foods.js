@@ -1,4 +1,4 @@
-import { getConnection, toFood } from '../database.js';
+import { getConnection, toFood, webUrl } from '../database.js';
 
 export async function getFoods() {
   const connection = await getConnection();
@@ -15,13 +15,15 @@ export async function saveFood(food) {
   try {
     await connection.beginTransaction();
     await connection.query(
-      `INSERT INTO foods (id, name, category, kcal, protein, fat, fiber, image)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO foods (id, name, category, kcal, protein, fat, fiber, image, manufacturer_url, shop_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE name=VALUES(name), category=VALUES(category),
        kcal=VALUES(kcal), protein=VALUES(protein), fat=VALUES(fat),
-       fiber=VALUES(fiber), image=VALUES(image)`,
+       fiber=VALUES(fiber), image=VALUES(image),
+       manufacturer_url=VALUES(manufacturer_url), shop_url=VALUES(shop_url)`,
       [food.id, food.name, food.category || 'Other', Number(food.kcal) || 0,
-        Number(food.protein) || 0, Number(food.fat) || 0, Number(food.fiber) || 0, food.image || null]
+        Number(food.protein) || 0, Number(food.fat) || 0, Number(food.fiber) || 0, food.image || null,
+        webUrl(food.manufacturerUrl), webUrl(food.shopUrl)]
     );
     await connection.commit();
   } catch (error) {
