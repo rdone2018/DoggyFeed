@@ -88,6 +88,8 @@ const schema = [
     recorded_at VARCHAR(40) NOT NULL,
     weight DECIMAL(8,2) NOT NULL,
     desired_weight DECIMAL(8,2) NULL,
+    daily_energy DECIMAL(10,2) NULL,
+    daily_energy_custom TINYINT(1) NULL,
     INDEX weight_history_dog_id (dog_id, recorded_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   // Food served history. Rows are only added when a bowl is served and are not part of the
@@ -136,7 +138,9 @@ const laterColumns = [
   ['dogs', 'daily_energy', 'DECIMAL(10,2) NULL'],
   ['foods', 'image', 'LONGTEXT NULL'],
   ['saved_plans', 'dog_id', 'VARCHAR(80) NULL'],
-  ['served_meals', 'plan_name', 'VARCHAR(120) NULL']
+  ['served_meals', 'plan_name', 'VARCHAR(120) NULL'],
+  ['weight_history', 'daily_energy', 'DECIMAL(10,2) NULL'],
+  ['weight_history', 'daily_energy_custom', 'TINYINT(1) NULL']
 ];
 
 async function addMissingColumns(connection) {
@@ -234,7 +238,9 @@ function cleanState(state) {
       .filter(([, entry]) => text(entry.dogId, 80) && text(entry.date, 40) && Number(entry.weight) > 0)
       .map(([id, entry]) => ({
         id, dogId: text(entry.dogId, 80), date: text(entry.date, 40), weight: amount(entry.weight, 0, 999999),
-        desiredWeight: Number(entry.desiredWeight) > 0 ? amount(entry.desiredWeight, null, 999999) : null
+        desiredWeight: Number(entry.desiredWeight) > 0 ? amount(entry.desiredWeight, null, 999999) : null,
+        dailyEnergy: Number(entry.dailyEnergy) > 0 ? amount(entry.dailyEnergy, null, 99999999) : null,
+        dailyEnergyCustom: Number(entry.dailyEnergy) > 0 ? (entry.dailyEnergyCustom ? 1 : 0) : null
       })),
     selectedDog: text(state.selectedDog, 255)
   };
@@ -307,8 +313,9 @@ export async function replaceState(rawState) {
 
     for (const entry of state.weightHistory) {
       await connection.query(
-        'INSERT INTO weight_history (id, dog_id, recorded_at, weight, desired_weight) VALUES (?, ?, ?, ?, ?)',
-        [entry.id, entry.dogId, entry.date, entry.weight, entry.desiredWeight]
+        `INSERT INTO weight_history (id, dog_id, recorded_at, weight, desired_weight, daily_energy, daily_energy_custom)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [entry.id, entry.dogId, entry.date, entry.weight, entry.desiredWeight, entry.dailyEnergy, entry.dailyEnergyCustom]
       );
     }
 
@@ -416,7 +423,9 @@ export async function readState() {
       })),
       weightHistory: weightRows.map(row => ({
         id: row.id, dogId: row.dog_id, date: row.recorded_at, weight: Number(row.weight),
-        desiredWeight: row.desired_weight === null || row.desired_weight === undefined ? null : Number(row.desired_weight)
+        desiredWeight: row.desired_weight === null || row.desired_weight === undefined ? null : Number(row.desired_weight),
+        dailyEnergy: row.daily_energy === null || row.daily_energy === undefined ? null : Number(row.daily_energy),
+        dailyEnergyCustom: Boolean(row.daily_energy_custom)
       })),
       selectedDog: settings.find(setting => setting.setting_key === 'selectedDog')?.setting_value || '',
       revision: Number(settings.find(setting => setting.setting_key === 'stateRevision')?.setting_value) || 0
