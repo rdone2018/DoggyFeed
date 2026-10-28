@@ -215,6 +215,22 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  // Connection test: the page sends requests of different sizes, content and addresses. They are only read
+  // and answered, never saved, to find what a proxy or firewall between the browser and DoggyFeed holds back.
+  const isStateTest = pathname === '/api/state' && request.method === 'POST' &&
+    new URL(request.url, 'http://localhost').searchParams.get('connectionTest') === '1';
+  if ((pathname === '/api/connection-test' && request.method === 'POST') || isStateTest) {
+    const started = Date.now();
+    try {
+      await readRequestJson(request);
+      console.log(`Connection test reached the server: ${pathname}, ${request.bodyBytes} bytes, ${Date.now() - started} ms`);
+      sendJson(response, 200, { ok: true, bytes: request.bodyBytes, path: pathname });
+    } catch (error) {
+      sendRouteError(request, response, error, 'Connection test failed');
+    }
+    return;
+  }
+
   // The page saves with POST, because some proxies and hosting firewalls block PUT. PUT stays for older pages.
   if (pathname === '/api/state' && (request.method === 'POST' || request.method === 'PUT')) {
     // Each step is logged and a save still running after 20 seconds is recorded, so a save that never
