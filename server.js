@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { closeDatabase, initializeDatabase, readDatabaseDiagnostics, readState, writeState } from './database.js';
+import { closeDatabase, initializeDatabase, readDatabaseDiagnostics, readRevision, readState, writeState } from './database.js';
 import { readErrors, readSaves, recordError, recordSave } from './errorlog.js';
 import * as dogsModule from './modules/dogs.js';
 import * as foodsModule from './modules/foods.js';
@@ -108,7 +108,10 @@ function sendRouteError(request, response, error, message) {
   if (response.headersSent) return;
   // Include the database error code (for example ER_BAD_FIELD_ERROR) so failures can be diagnosed from the browser.
   const detail = statusCode === 500 && error.code ? ` (${error.code})` : '';
-  sendJson(response, statusCode, { error: statusCode === 500 ? `${message}${detail}.` : error.message });
+  sendJson(response, statusCode, {
+    error: statusCode === 500 ? `${message}${detail}.` : error.message,
+    ...(error.currentRevision !== undefined ? { conflict: true, currentRevision: error.currentRevision } : {})
+  });
 }
 
 function isValidState(state) {
@@ -203,6 +206,15 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  if (pathname === '/api/state/revision' && request.method === 'GET') {
+    try {
+      sendJson(response, 200, { revision: await readRevision(), startedAt: serverInfo.startedAt });
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to read the save number');
+    }
+    return;
+  }
+
   // The page saves with POST, because some proxies and hosting firewalls block PUT. PUT stays for older pages.
   if (pathname === '/api/state' && (request.method === 'POST' || request.method === 'PUT')) {
     try {
@@ -211,7 +223,7 @@ const server = http.createServer(async (request, response) => {
         sendJson(response, 400, { error: 'Application data has an invalid format.' });
         return;
       }
-      const result = await writeState(state);
+      const result = await writeState(state, Number.isInteger(state.baseRevision) ? state.baseRevision : null);
       await recordSave({
         ...result,
         bodyBytes: request.bodyBytes ?? null,

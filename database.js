@@ -246,11 +246,29 @@ function cleanState(state) {
   };
 }
 
-export async function replaceState(rawState) {
+// baseRevision is the save number the browser's data was loaded from. Every save replaces all data, so a
+// browser holding older data (another tab, computer or phone) would silently undo newer saves; such a save is
+// refused instead. Leaving baseRevision out skips the check, for example to keep a version on purpose.
+export async function replaceState(rawState, baseRevision = null) {
   const state = cleanState(rawState);
   const connection = await getConnection();
   try {
     await connection.beginTransaction();
+
+    if (Number.isInteger(baseRevision)) {
+      const [current] = await connection.query(
+        "SELECT setting_value FROM app_settings WHERE setting_key = 'stateRevision' FOR UPDATE"
+      );
+      const currentRevision = Number(current?.setting_value) || 0;
+      if (currentRevision !== baseRevision) {
+        const error = new Error(
+          `DoggyFeed was saved somewhere else (save #${currentRevision}) after this page loaded save #${baseRevision}.`
+        );
+        error.statusCode = 409;
+        error.currentRevision = currentRevision;
+        throw error;
+      }
+    }
 
     // The browser leaves out pictures that are already stored and marks them to keep.
     const storedPhotos = new Map();
@@ -436,10 +454,15 @@ export async function readState() {
 }
 
 let writeQueue = Promise.resolve();
-export function writeState(state) {
-  const write = writeQueue.then(() => replaceState(state));
+export function writeState(state, baseRevision = null) {
+  const write = writeQueue.then(() => replaceState(state, baseRevision));
   writeQueue = write.catch(() => {});
   return write;
+}
+
+export async function readRevision() {
+  const rows = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'stateRevision'");
+  return Number(rows[0]?.setting_value) || 0;
 }
 
 export async function readDatabaseDiagnostics() {
