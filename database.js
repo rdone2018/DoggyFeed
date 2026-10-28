@@ -46,7 +46,8 @@ const schema = [
     heat2 VARCHAR(10) NULL,
     photo LONGTEXT NULL,
     desired_weight DECIMAL(8,2) NULL,
-    meals_per_day INT NOT NULL DEFAULT 1
+    meals_per_day INT NOT NULL DEFAULT 1,
+    daily_energy DECIMAL(10,2) NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS foods (
     id VARCHAR(80) NOT NULL PRIMARY KEY,
@@ -101,6 +102,7 @@ const laterColumns = [
   ['dogs', 'photo', 'LONGTEXT NULL'],
   ['dogs', 'desired_weight', 'DECIMAL(8,2) NULL'],
   ['dogs', 'meals_per_day', 'INT NOT NULL DEFAULT 1'],
+  ['dogs', 'daily_energy', 'DECIMAL(10,2) NULL'],
   ['foods', 'image', 'LONGTEXT NULL'],
   ['saved_plans', 'dog_id', 'VARCHAR(80) NULL']
 ];
@@ -126,7 +128,8 @@ export function toDog(dog) {
     age: dog.life_stage, breed: dog.breed || '', gender: dog.gender || '',
     heat1: dog.heat1 || '', heat2: dog.heat2 || '', photo: dog.photo || '',
     desiredWeight: dog.desired_weight === null || dog.desired_weight === undefined ? '' : Number(dog.desired_weight),
-    mealsPerDay: Number(dog.meals_per_day) || 1
+    mealsPerDay: Number(dog.meals_per_day) || 1,
+    dailyEnergy: dog.daily_energy === null || dog.daily_energy === undefined ? '' : Number(dog.daily_energy)
   };
 }
 
@@ -181,7 +184,8 @@ function cleanState(state) {
       activity: amount(dog.activity, 1.6, 999) || 1.6, lifeStage: text(dog.age, 30) || 'Adult',
       breed: text(dog.breed, 120), gender: text(dog.gender, 20), heat1: text(dog.heat1, 10), heat2: text(dog.heat2, 10),
       photo: text(dog.photo, Infinity), keepPhoto: dog.keepPhoto === true, desiredWeight: Number(dog.desiredWeight) > 0 ? amount(dog.desiredWeight, null, 999999) : null,
-      mealsPerDay: Math.round(amount(dog.mealsPerDay, 1, 10)) || 1
+      mealsPerDay: Math.round(amount(dog.mealsPerDay, 1, 10)) || 1,
+      dailyEnergy: Number(dog.dailyEnergy) > 0 ? amount(dog.dailyEnergy, null, 99999999) : null
     })),
     foods: uniqueById(state.foods).map(([id, food]) => ({
       id, name: text(food.name, 120) || 'Food', category: text(food.category, 50) || 'Other',
@@ -230,11 +234,11 @@ export async function replaceState(rawState) {
 
     for (const dog of state.dogs) {
       await connection.query(
-        `INSERT INTO dogs (id, name, weight, activity, life_stage, breed, gender, heat1, heat2, photo, desired_weight, meals_per_day)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO dogs (id, name, weight, activity, life_stage, breed, gender, heat1, heat2, photo, desired_weight, meals_per_day, daily_energy)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [dog.id, dog.name, dog.weight, dog.activity, dog.lifeStage,
           dog.breed, dog.gender, dog.heat1, dog.heat2, dog.keepPhoto ? storedPhotos.get(dog.id) ?? null : dog.photo,
-          dog.desiredWeight, dog.mealsPerDay]
+          dog.desiredWeight, dog.mealsPerDay, dog.dailyEnergy]
       );
     }
 
