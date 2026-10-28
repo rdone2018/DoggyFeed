@@ -303,6 +303,21 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  if (pathname === '/api/served-meals' && request.method === 'POST') {
+    try {
+      const meal = await readRequestJson(request, 512 * 1024);
+      if (!meal || typeof meal.dogId !== 'string' || !meal.dogId || !Array.isArray(meal.items)) {
+        sendJson(response, 400, { error: 'A served bowl needs a dog and its foods.' });
+        return;
+      }
+      const result = await mealsModule.recordServedMeal(meal);
+      sendJson(response, 201, { saved: true, ...result });
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to record the served bowl');
+    }
+    return;
+  }
+
   if (pathname === '/api/plans' && request.method === 'GET') {
     try {
       const plans = await mealsModule.getSavedPlans();

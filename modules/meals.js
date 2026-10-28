@@ -102,3 +102,68 @@ export async function deletePlan(id) {
     connection.release();
   }
 }
+
+const servedText = (value, maxLength) => String(value ?? '').slice(0, maxLength);
+const servedAmount = value => {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(Math.max(number, 0), 99999999) : 0;
+};
+
+// Adds one served bowl, with a copy of each food's details, to the food served history.
+export async function recordServedMeal(meal) {
+  const items = (Array.isArray(meal.items) ? meal.items : [])
+    .filter(item => item && item.foodId)
+    .map(item => {
+      const grams = servedAmount(item.grams);
+      const per100 = key => servedAmount(item[key]) * grams / 100;
+      return {
+        foodId: servedText(item.foodId, 80),
+        foodName: servedText(item.foodName || 'Food', 120),
+        category: servedText(item.category, 50) || null,
+        grams,
+        kcalPer100g: servedAmount(item.kcal),
+        kcal: per100('kcal'),
+        protein: per100('protein'),
+        fat: per100('fat'),
+        fiber: per100('fiber')
+      };
+    });
+  if (!items.length) {
+    const error = new Error('The bowl has no foods to record.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const servedAt = new Date(meal.servedAt);
+  const id = servedText(meal.id, 80) || `served-${Date.now()}`;
+  const total = key => items.reduce((sum, item) => sum + item[key], 0);
+  const connection = await getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query(
+      `INSERT INTO served_meals (id, dog_id, dog_name, served_at, meals_per_day, target_kcal, kcal, protein, fat, fiber)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, servedText(meal.dogId, 80), servedText(meal.dogName || 'Dog', 100),
+        Number.isNaN(servedAt.getTime()) ? new Date() : servedAt,
+        Number(meal.mealsPerDay) > 0 ? Math.round(Number(meal.mealsPerDay)) : null,
+        Number(meal.targetKcal) > 0 ? servedAmount(meal.targetKcal) : null,
+        total('kcal'), total('protein'), total('fat'), total('fiber')]
+    );
+    for (const [position, item] of items.entries()) {
+      await connection.query(
+        `INSERT INTO served_meal_items
+           (served_meal_id, position, food_id, food_name, category, grams, kcal_per_100g, kcal, protein, fat, fiber)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, position, item.foodId, item.foodName, item.category, item.grams, item.kcalPer100g,
+          item.kcal, item.protein, item.fat, item.fiber]
+      );
+    }
+    await connection.commit();
+    return { id, kcal: total('kcal'), items: items.length };
+  } catch (error) {
+    await connection.rollback().catch(() => {});
+    throw error;
+  } finally {
+    connection.release();
+  }
+}

@@ -89,6 +89,36 @@ const schema = [
     weight DECIMAL(8,2) NOT NULL,
     desired_weight DECIMAL(8,2) NULL,
     INDEX weight_history_dog_id (dog_id, recorded_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // Food served history. Rows are only added when a bowl is served and are not part of the
+  // application data that every save replaces. Food details are copied so the history stays
+  // correct after foods are edited or deleted.
+  `CREATE TABLE IF NOT EXISTS served_meals (
+    id VARCHAR(80) NOT NULL PRIMARY KEY,
+    dog_id VARCHAR(80) NOT NULL,
+    dog_name VARCHAR(100) NOT NULL,
+    served_at DATETIME(3) NOT NULL,
+    meals_per_day INT NULL,
+    target_kcal DECIMAL(10,2) NULL,
+    kcal DECIMAL(10,2) NOT NULL DEFAULT 0,
+    protein DECIMAL(10,2) NOT NULL DEFAULT 0,
+    fat DECIMAL(10,2) NOT NULL DEFAULT 0,
+    fiber DECIMAL(10,2) NOT NULL DEFAULT 0,
+    INDEX served_meals_dog_id (dog_id, served_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS served_meal_items (
+    served_meal_id VARCHAR(80) NOT NULL,
+    position INT NOT NULL,
+    food_id VARCHAR(80) NOT NULL,
+    food_name VARCHAR(120) NOT NULL,
+    category VARCHAR(50) NULL,
+    grams DECIMAL(10,2) NOT NULL DEFAULT 0,
+    kcal_per_100g DECIMAL(10,2) NOT NULL DEFAULT 0,
+    kcal DECIMAL(10,2) NOT NULL DEFAULT 0,
+    protein DECIMAL(10,2) NOT NULL DEFAULT 0,
+    fat DECIMAL(10,2) NOT NULL DEFAULT 0,
+    fiber DECIMAL(10,2) NOT NULL DEFAULT 0,
+    PRIMARY KEY (served_meal_id, position)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
 
