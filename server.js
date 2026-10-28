@@ -217,13 +217,27 @@ const server = http.createServer(async (request, response) => {
 
   // The page saves with POST, because some proxies and hosting firewalls block PUT. PUT stays for older pages.
   if (pathname === '/api/state' && (request.method === 'POST' || request.method === 'PUT')) {
+    // Each step is logged and a save still running after 20 seconds is recorded, so a save that never
+    // finishes shows where it stopped instead of failing silently.
+    const started = Date.now();
+    let stage = 'receiving the data from the browser';
+    console.log(`Save received from ${request.headers['x-forwarded-for'] || request.socket.remoteAddress}`);
+    const watchdog = setTimeout(() => {
+      const error = new Error(`The save has been running for 20 seconds and is still ${stage}.`);
+      error.code = 'SAVE_TOO_SLOW';
+      recordError('Save is taking too long', error, { request: `${request.method} /api/state`, bodyBytes: request.bodyBytes ?? null });
+    }, 20000);
     try {
       const state = await readRequestJson(request);
+      console.log(`Save data received: ${request.bodyBytes} bytes after ${Date.now() - started} ms`);
       if (!isValidState(state)) {
         sendJson(response, 400, { error: 'Application data has an invalid format.' });
         return;
       }
+      stage = 'writing to the database';
       const result = await writeState(state, Number.isInteger(state.baseRevision) ? state.baseRevision : null);
+      console.log(`Save #${result.revision} written after ${Date.now() - started} ms`);
+      stage = 'recording the save';
       await recordSave({
         ...result,
         bodyBytes: request.bodyBytes ?? null,
@@ -235,6 +249,8 @@ const server = http.createServer(async (request, response) => {
       sendJson(response, 200, { saved: true, ...result });
     } catch (error) {
       sendRouteError(request, response, error, 'Unable to save application data');
+    } finally {
+      clearTimeout(watchdog);
     }
     return;
   }

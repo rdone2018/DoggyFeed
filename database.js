@@ -22,7 +22,10 @@ export const pool = mariadb.createPool({
   user: process.env.DB_USER || 'doggyfeed',
   password: process.env.DB_PASSWORD,
   connectionLimit: 5,
-  decimalAsNumber: true
+  decimalAsNumber: true,
+  // Fail with an error instead of waiting forever for a free connection or a blocked query.
+  acquireTimeout: 15000,
+  queryTimeout: 30000
 });
 
 export async function getConnection() {
