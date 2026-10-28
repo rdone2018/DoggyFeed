@@ -80,6 +80,14 @@ const schema = [
     grams DECIMAL(10,2) NOT NULL DEFAULT 0,
     PRIMARY KEY (plan_id, position),
     INDEX saved_plan_items_food_id (food_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS weight_history (
+    id VARCHAR(80) NOT NULL PRIMARY KEY,
+    dog_id VARCHAR(80) NOT NULL,
+    recorded_at VARCHAR(40) NOT NULL,
+    weight DECIMAL(8,2) NOT NULL,
+    desired_weight DECIMAL(8,2) NULL,
+    INDEX weight_history_dog_id (dog_id, recorded_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
 
@@ -186,6 +194,12 @@ function cleanState(state) {
       id, name: text(plan.name, 120) || 'Plan', savedAt: text(plan.savedAt, 40), updatedAt: text(plan.updatedAt, 40),
       dogId: text(plan.dogId, 80), items: cleanItems(plan.items)
     })),
+    weightHistory: uniqueById(state.weightHistory)
+      .filter(([, entry]) => text(entry.dogId, 80) && text(entry.date, 40) && Number(entry.weight) > 0)
+      .map(([id, entry]) => ({
+        id, dogId: text(entry.dogId, 80), date: text(entry.date, 40), weight: amount(entry.weight, 0, 999999),
+        desiredWeight: Number(entry.desiredWeight) > 0 ? amount(entry.desiredWeight, null, 999999) : null
+      })),
     selectedDog: text(state.selectedDog, 255)
   };
 }
@@ -208,6 +222,7 @@ export async function replaceState(rawState) {
 
     await connection.query('DELETE FROM saved_plan_items');
     await connection.query('DELETE FROM saved_plans');
+    await connection.query('DELETE FROM weight_history');
     await connection.query('DELETE FROM meal_items');
     await connection.query('DELETE FROM dogs');
     await connection.query('DELETE FROM foods');
@@ -252,6 +267,13 @@ export async function replaceState(rawState) {
           [plan.id, position, item.foodId, item.grams]
         );
       }
+    }
+
+    for (const entry of state.weightHistory) {
+      await connection.query(
+        'INSERT INTO weight_history (id, dog_id, recorded_at, weight, desired_weight) VALUES (?, ?, ?, ?, ?)',
+        [entry.id, entry.dogId, entry.date, entry.weight, entry.desiredWeight]
+      );
     }
 
     if (state.selectedDog) {
@@ -324,13 +346,14 @@ export async function initializeDatabase() {
 export async function readState() {
   const connection = await getConnection();
   try {
-    const [dogs, foods, mealRows, plans, planRows, settings] = await Promise.all([
+    const [dogs, foods, mealRows, plans, planRows, settings, weightRows] = await Promise.all([
       connection.query('SELECT * FROM dogs ORDER BY name'),
       connection.query('SELECT * FROM foods ORDER BY name'),
       connection.query('SELECT * FROM meal_items ORDER BY dog_id, position'),
       connection.query('SELECT * FROM saved_plans ORDER BY name'),
       connection.query('SELECT * FROM saved_plan_items ORDER BY plan_id, position'),
-      connection.query("SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('selectedDog', 'hasApplicationState', 'stateRevision')")
+      connection.query("SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('selectedDog', 'hasApplicationState', 'stateRevision')"),
+      connection.query('SELECT * FROM weight_history ORDER BY recorded_at')
     ]);
 
     if (!settings.some(setting => setting.setting_key === 'hasApplicationState')) return null;
@@ -354,6 +377,10 @@ export async function readState() {
       savedPlans: plans.map(plan => ({
         id: plan.id, name: plan.name, savedAt: plan.saved_at, updatedAt: plan.updated_at, dogId: plan.dog_id || '',
         items: planItems.get(plan.id) || []
+      })),
+      weightHistory: weightRows.map(row => ({
+        id: row.id, dogId: row.dog_id, date: row.recorded_at, weight: Number(row.weight),
+        desiredWeight: row.desired_weight === null || row.desired_weight === undefined ? null : Number(row.desired_weight)
       })),
       selectedDog: settings.find(setting => setting.setting_key === 'selectedDog')?.setting_value || '',
       revision: Number(settings.find(setting => setting.setting_key === 'stateRevision')?.setting_value) || 0

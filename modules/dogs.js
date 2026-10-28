@@ -45,6 +45,7 @@ export async function deleteDog(id) {
       [id]
     );
     await connection.query('DELETE FROM saved_plans WHERE dog_id = ?', [id]);
+    await connection.query('DELETE FROM weight_history WHERE dog_id = ?', [id]);
     await connection.query('DELETE FROM dogs WHERE id = ?', [id]);
     await connection.query(
       "DELETE FROM app_settings WHERE setting_key = 'selectedDog' AND setting_value = ?",
