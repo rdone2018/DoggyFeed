@@ -1,5 +1,6 @@
 import mariadb from 'mariadb';
 import dotenv from 'dotenv';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -243,7 +244,7 @@ function cleanState(state) {
       id, name: text(dog.name, 100) || 'Dog', weight: amount(dog.weight, 0, 999999),
       activity: amount(dog.activity, 1.6, 999) || 1.6, lifeStage: text(dog.age, 30) || 'Adult',
       breed: text(dog.breed, 120), gender: text(dog.gender, 20), heat1: text(dog.heat1, 10), heat2: text(dog.heat2, 10),
-      photo: text(dog.photo, Infinity), keepPhoto: dog.keepPhoto === true, desiredWeight: Number(dog.desiredWeight) > 0 ? amount(dog.desiredWeight, null, 999999) : null,
+      photo: text(dog.photo, Infinity), keepPhoto: dog.keepPhoto === true || isPictureLink(dog.photo, 'dog', id), desiredWeight: Number(dog.desiredWeight) > 0 ? amount(dog.desiredWeight, null, 999999) : null,
       mealsPerDay: Math.round(amount(dog.mealsPerDay, 1, 10)) || 1,
       dailyEnergy: Number(dog.dailyEnergy) > 0 ? amount(dog.dailyEnergy, null, 99999999) : null
     })),
@@ -251,7 +252,7 @@ function cleanState(state) {
       id, name: text(food.name, 120) || 'Food', category: text(food.category, 50) || 'Other',
       kcal: amount(food.kcal, 0, 99999999), protein: amount(food.protein, 0, 99999999),
       fat: amount(food.fat, 0, 99999999), fiber: amount(food.fiber, 0, 99999999), image: text(food.image, Infinity),
-      keepImage: food.keepImage === true, manufacturerUrl: webUrl(food.manufacturerUrl), shopUrl: webUrl(food.shopUrl)
+      keepImage: food.keepImage === true || isPictureLink(food.image, 'food', id), manufacturerUrl: webUrl(food.manufacturerUrl), shopUrl: webUrl(food.shopUrl)
     })),
     meals,
     savedPlans: uniqueById(state.savedPlans).map(([id, plan]) => ({
@@ -456,8 +457,8 @@ export async function readState() {
     }
 
     return {
-      dogs: dogs.map(toDog),
-      foods: foods.map(toFood),
+      dogs: dogs.map(dog => ({ ...toDog(dog), photo: pictureUrl('dog', dog.id, dog.photo) })),
+      foods: foods.map(food => ({ ...toFood(food), image: pictureUrl('food', food.id, food.image) })),
       meals,
       savedPlans: plans.map(plan => ({
         id: plan.id, name: plan.name, savedAt: plan.saved_at, updatedAt: plan.updated_at, dogId: plan.dog_id || '',
@@ -472,6 +473,36 @@ export async function readState() {
       selectedDog: settings.find(setting => setting.setting_key === 'selectedDog')?.setting_value || '',
       revision: Number(settings.find(setting => setting.setting_key === 'stateRevision')?.setting_value) || 0
     };
+  } finally {
+    connection.release();
+  }
+}
+
+// The app data carries links to the pictures instead of the pictures themselves, so it stays a few KB instead of
+// several MB; a large answer is more likely to stall on an unsteady connection such as a phone's first one. The
+// version is a hash of the picture, so a changed picture gets a new link and browsers can cache each link for good.
+// A save that leaves a picture unchanged sends it back with keepPhoto/keepImage, so the stored picture stays.
+function pictureUrl(kind, id, value) {
+  if (!value) return '';
+  if (!value.startsWith('data:')) return value;
+  const version = createHash('sha1').update(value).digest('hex').slice(0, 12);
+  return `/api/pictures/${kind}/${encodeURIComponent(id)}?v=${version}`;
+}
+
+// A picture sent back as its own link means "unchanged", so the stored picture is kept instead of the link.
+function isPictureLink(value, kind, id) {
+  return typeof value === 'string' && value.startsWith(`/api/pictures/${kind}/${encodeURIComponent(id)}?`);
+}
+
+// Returns { type, data } for a stored dog photo or food picture, or null when there is none.
+export async function readPicture(kind, id) {
+  const [table, column] = kind === 'dog' ? ['dogs', 'photo'] : ['foods', 'image'];
+  const connection = await getConnection();
+  try {
+    const [row] = await connection.query(`SELECT ${column} AS picture FROM ${table} WHERE id = ?`, [id]);
+    // Only image types: anything else stored here is not served, so it can never run as a page on this address.
+    const match = /^data:(image\/(?:jpeg|png|webp|gif));base64,(.*)$/s.exec(row?.picture || '');
+    return match ? { type: match[1], data: Buffer.from(match[2], 'base64') } : null;
   } finally {
     connection.release();
   }

@@ -4,7 +4,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
-import { closeDatabase, initializeDatabase, readDatabaseDiagnostics, readRevision, readState, writeState } from './database.js';
+import { closeDatabase, initializeDatabase, readDatabaseDiagnostics, readPicture, readRevision, readState, writeState } from './database.js';
 import { readErrors, readSaves, recordError, recordSave } from './errorlog.js';
 import * as dogsModule from './modules/dogs.js';
 import * as foodsModule from './modules/foods.js';
@@ -225,6 +225,29 @@ const server = http.createServer(async (request, response) => {
       });
     } catch (error) {
       sendRouteError(request, response, error, 'Unable to read application data');
+    }
+    return;
+  }
+
+  // Dog photos and food pictures, linked from the app data. Each link carries the picture's version, so the
+  // browser may keep it for good and fetches a changed picture under its new link.
+  const pictureMatch = /^\/api\/pictures\/(dog|food)\/([^/]+)$/.exec(pathname);
+  if (pictureMatch && request.method === 'GET') {
+    try {
+      const picture = await readPicture(pictureMatch[1], decodeURIComponent(pictureMatch[2]));
+      if (!picture) {
+        sendJson(response, 404, { error: 'Picture not found.' });
+        return;
+      }
+      response.writeHead(200, {
+        'Content-Type': picture.type,
+        'Content-Length': picture.data.length,
+        'Cache-Control': 'private, max-age=31536000, immutable',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      response.end(picture.data);
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to read the picture');
     }
     return;
   }

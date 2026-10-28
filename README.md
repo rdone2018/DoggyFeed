@@ -17,7 +17,7 @@ Place the database settings in `/etc/doggyfeed/doggyfeed.env` before starting th
 
 After updating DoggyFeed (for example with `git pull`), restart the server. The page is read fresh on every visit, but the server code and database changes only load when the server starts. Until then, saves may not reach the database, and the page shows a "Restart the DoggyFeed server" warning.
 
-If DoggyFeed runs behind a reverse proxy such as nginx, allow request bodies of a few megabytes (for example `client_max_body_size 20m;`) so new dog photos and food pictures can be saved. Pictures already stored are not sent again with later saves.
+If DoggyFeed runs behind a reverse proxy such as nginx, allow request bodies of a few megabytes (for example `client_max_body_size 20m;`) so new dog photos and food pictures can be saved. Pictures already stored are not sent again with later saves. When the app loads, its data carries links to the pictures instead of the pictures themselves, and the browser fetches and caches each picture from `/api/pictures/`.
 
 Open `http://127.0.0.1:3000/diagnostics` to inspect database tables, row counts, columns, and stored values. This read-only page is restricted to requests from the local computer.
 
