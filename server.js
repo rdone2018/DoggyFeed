@@ -168,7 +168,8 @@ const server = http.createServer(async (request, response) => {
       const html = await readFile(path.join(root, 'diagnostics.html'));
       response.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-store, max-age=0',
+        'Pragma': 'no-cache',
         'X-Content-Type-Options': 'nosniff'
       });
       response.end(html);
@@ -496,7 +497,9 @@ const server = http.createServer(async (request, response) => {
       response.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8',
         'Content-Length': body.length,
-        'Cache-Control': 'no-cache',
+        // Never kept by the browser or a proxy, so a reload after an update always gets the new page.
+        'Cache-Control': 'no-store, max-age=0',
+        'Pragma': 'no-cache',
         'Vary': 'Accept-Encoding',
         'X-Content-Type-Options': 'nosniff',
         ...(gzip ? { 'Content-Encoding': 'gzip' } : {})
