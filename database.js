@@ -64,7 +64,7 @@ const schema = [
     image LONGTEXT NULL,
     manufacturer_url VARCHAR(500) NULL,
     shop_url VARCHAR(500) NULL,
-    portion DECIMAL(8,1) NULL
+    \`portion\` DECIMAL(8,1) NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS meal_items (
     dog_id VARCHAR(80) NOT NULL,
@@ -166,7 +166,8 @@ async function addMissingColumns(connection) {
   const existing = new Set(rows.map(row => `${row.tableName}.${row.columnName}`.toLowerCase()));
   for (const [table, column, definition] of laterColumns) {
     if (existing.has(`${table}.${column}`)) continue;
-    await connection.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    // Names in backticks: some column names, such as portion, are reserved words in MariaDB.
+    await connection.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
     console.log(`Added missing column ${table}.${column} to the database.`);
   }
 }
@@ -335,7 +336,7 @@ export async function replaceState(rawState, baseRevision = null) {
 
     for (const food of state.foods) {
       await connection.query(
-        `INSERT INTO foods (id, name, category, kcal, protein, fat, fiber, image, manufacturer_url, shop_url, portion)
+        `INSERT INTO foods (id, name, category, kcal, protein, fat, fiber, image, manufacturer_url, shop_url, \`portion\`)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [food.id, food.name, food.category, food.kcal, food.protein, food.fat, food.fiber,
           food.keepImage ? storedImages.get(food.id) ?? null : food.image, food.manufacturerUrl, food.shopUrl, food.portion]

@@ -15,12 +15,12 @@ export async function saveFood(food) {
   try {
     await connection.beginTransaction();
     await connection.query(
-      `INSERT INTO foods (id, name, category, kcal, protein, fat, fiber, image, manufacturer_url, shop_url, portion)
+      `INSERT INTO foods (id, name, category, kcal, protein, fat, fiber, image, manufacturer_url, shop_url, \`portion\`)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE name=VALUES(name), category=VALUES(category),
        kcal=VALUES(kcal), protein=VALUES(protein), fat=VALUES(fat),
        fiber=VALUES(fiber), image=VALUES(image),
-       manufacturer_url=VALUES(manufacturer_url), shop_url=VALUES(shop_url), portion=VALUES(portion)`,
+       manufacturer_url=VALUES(manufacturer_url), shop_url=VALUES(shop_url), \`portion\`=VALUES(\`portion\`)`,
       [food.id, food.name, food.category || 'Other', Number(food.kcal) || 0,
         Number(food.protein) || 0, Number(food.fat) || 0, Number(food.fiber) || 0, food.image || null,
         webUrl(food.manufacturerUrl), webUrl(food.shopUrl), portionGrams(food.portion)]
