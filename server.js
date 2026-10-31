@@ -456,14 +456,15 @@ const server = http.createServer(async (request, response) => {
         sendJson(response, 200, { countries: await countriesModule.adminCountries() });
         return;
       }
-      // Global food library: list, add or change (with a picture), delete selected foods, and import CSV rows.
+      // Global food library: list, add or change (with a picture), delete selected foods, import CSV rows,
+      // and store pictures matched to foods by file name.
       if (pathname === '/api/admin/global-foods' || pathname.startsWith('/api/admin/global-foods/')) {
         if (request.method === 'GET' && pathname === '/api/admin/global-foods') {
           sendJson(response, 200, { foods: await globalFoods.listGlobalFoods() });
           return;
         }
         const action = pathname.slice('/api/admin/global-foods/'.length);
-        if (request.method !== 'POST' || !['save', 'delete', 'import'].includes(action)) {
+        if (request.method !== 'POST' || !['save', 'delete', 'import', 'pictures'].includes(action)) {
           sendJson(response, 404, { error: 'Not found.' });
           return;
         }
@@ -471,6 +472,7 @@ const server = http.createServer(async (request, response) => {
         let result = {};
         if (action === 'save') result = { id: await globalFoods.saveGlobalFood(body) };
         if (action === 'delete') result = { deleted: await globalFoods.deleteGlobalFoods(body.ids) };
+        if (action === 'pictures') result = { pictures: await globalFoods.setGlobalPictures(body.pictures) };
         if (action === 'import') {
           result = await globalFoods.importGlobalFoods(body.foods);
           console.log(`Global food library import by ${session.user.username}: ${result.added} added, ${result.updated} updated.`);

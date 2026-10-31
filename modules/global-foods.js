@@ -7,6 +7,7 @@ import { getConnection, portionGrams, webUrl } from '../database.js';
 export const CATEGORIES = ['Dry food', 'Wet food', 'Protein', 'Produce', 'Dairy', 'Treat', 'Other'];
 export const MAX_IMPORT_ROWS = 5000;
 const MAX_PICTURE_BYTES = 3 * 1024 * 1024;
+const MAX_PICTURE_BATCH = 50;
 
 const httpError = (statusCode, message) => Object.assign(new Error(message), { statusCode });
 const clean = (value, maxLength) => String(value ?? '').trim().slice(0, maxLength);
@@ -97,6 +98,27 @@ export async function deleteGlobalFoods(ids) {
   try {
     const result = await connection.query(`DELETE FROM global_food_library WHERE id IN (${list.map(() => '?').join(', ')})`, list);
     return result.affectedRows;
+  } finally {
+    connection.release();
+  }
+}
+
+// Stores pictures for global foods: items are { id, image } with image a JPEG, PNG or WebP data URL. Returns how
+// many foods got their picture.
+export async function setGlobalPictures(items) {
+  const list = (Array.isArray(items) ? items : []).slice(0, MAX_PICTURE_BATCH);
+  for (const item of list) {
+    if (typeof item?.image !== 'string' || !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(item.image)) throw httpError(400, 'Choose a JPG, PNG or WebP picture.');
+    if (item.image.length > MAX_PICTURE_BYTES) throw httpError(413, 'The picture is too large. Choose a smaller one.');
+  }
+  const connection = await getConnection();
+  try {
+    let updated = 0;
+    for (const item of list) {
+      const result = await connection.query('UPDATE global_food_library SET image = ?, updated_at = ? WHERE id = ?', [item.image, new Date(), clean(item.id, 80)]);
+      updated += result.affectedRows;
+    }
+    return updated;
   } finally {
     connection.release();
   }
