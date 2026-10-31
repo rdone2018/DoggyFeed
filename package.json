@@ -2,6 +2,9 @@
   "name": "doggyfeed",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
+  "author": "rdone2018",
+  "repository": "github:rdone2018/DoggyFeed",
   "type": "module",
   "engines": {
     "node": ">=18"

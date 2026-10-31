@@ -62,3 +62,7 @@ The page is drawn in English and translated as it appears, so a text without a t
 - Save profiles, foods, and meal plans to MariaDB through the Node server.
 
 The starter foods are sample entries. Verify nutrition values against product labels or a trusted database. The energy reference is a rough estimate, not a feeding prescription or veterinary advice. The server binds to `127.0.0.1` by default; set `HOST` or `PORT` to override it.
+
+## License
+
+DoggyFeed is free to copy, use, change and share under the MIT License (see [LICENSE](LICENSE)). Keep the copyright notice that names the original author, rdone2018, in every copy. Source code: https://github.com/rdone2018/DoggyFeed. The footer of every page links to the source code and to these conditions.
