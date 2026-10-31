@@ -63,13 +63,18 @@ async function insertUser(connection, dogHouseId, username, password, isAdmin = 
   return id;
 }
 
+// The country is changed only when it is sent, so a form without it keeps the stored country.
 function houseFields(fields) {
-  const house = { name: clean(fields.name, 120), contact: clean(fields.contact, 200), email: clean(fields.email, 200) };
+  const house = { name: clean(fields.name, 120), contact: clean(fields.contact, 200), email: clean(fields.email, 200),
+    country: 'country' in fields ? clean(fields.country, 60) : undefined };
   if (!house.name) throw httpError(400, 'Give the dog house a name.');
   const problem = emailProblem(house.email);
   if (problem) throw httpError(400, problem);
   return house;
 }
+
+const countryColumn = house => house.country === undefined ? '' : ', `country` = ?';
+const countryValue = house => house.country === undefined ? [] : [house.country || null];
 
 async function inTransaction(work) {
   const connection = await getConnection();
@@ -109,14 +114,14 @@ export async function setupDogHouseName() {
 
 // First start: while there are no users, the first one is created for the oldest dog house (which holds the data
 // from before dog houses), or for a new dog house when there is none.
-export async function setUpFirstUser({ houseName, contact, email, username, password }) {
+export async function setUpFirstUser({ houseName, contact, email, country, username, password }) {
   return inTransaction(async connection => {
     const [row] = await connection.query('SELECT COUNT(*) AS count FROM users FOR UPDATE');
     if (Number(row.count) > 0) throw httpError(409, 'DoggyFeed is already set up. Sign in instead.');
     const dogHouseId = await firstDogHouseId(connection);
-    const house = houseFields({ name: houseName, contact, email });
-    await connection.query('UPDATE dog_house SET name = ?, contact = ?, email = ? WHERE id = ?',
-      [house.name, house.contact || null, house.email || null, dogHouseId]);
+    const house = houseFields({ name: houseName, contact, email, country });
+    await connection.query(`UPDATE dog_house SET name = ?, contact = ?, email = ?${countryColumn(house)} WHERE id = ?`,
+      [house.name, house.contact || null, house.email || null, ...countryValue(house), dogHouseId]);
     // The first user is the administrator.
     return insertUser(connection, dogHouseId, username, password, true);
   });
@@ -126,10 +131,10 @@ export async function setUpFirstUser({ houseName, contact, email, username, pass
 // other details that cannot be used, and costs the same password hashing, so the form cannot be used to find out
 // which usernames exist.
 export const SIGNUP_REFUSED = 'The dog house could not be created with these details. Try a different username.';
-export async function createDogHouseWithUser({ houseName, contact, email, username, password }) {
+export async function createDogHouseWithUser({ houseName, contact, email, country, username, password }) {
   try {
     return await inTransaction(async connection => {
-      const house = houseFields({ name: houseName, contact, email });
+      const house = houseFields({ name: houseName, contact, email, country });
       const problem = usernameProblem(normalUsername(username)) || passwordProblem(password);
       if (problem) throw httpError(400, problem);
       const dogHouseId = await createDogHouse(connection, house);
@@ -177,7 +182,7 @@ export async function readSession(token) {
   const connection = await getConnection();
   try {
     const [row] = await connection.query(
-      `SELECT s.token_hash, s.expires_at, u.id AS user_id, u.username, u.is_admin, h.id AS house_id, h.name, h.contact, h.email
+      `SELECT s.token_hash, s.expires_at, u.id AS user_id, u.username, u.is_admin, h.id AS house_id, h.name, h.contact, h.email, h.\`country\`
        FROM sessions s JOIN users u ON u.id = s.user_id JOIN dog_house h ON h.id = u.dog_house_id
        WHERE s.token_hash = ? AND s.expires_at > ?`,
       [tokenHash(token), new Date()]
@@ -189,7 +194,7 @@ export async function readSession(token) {
     }
     return {
       user: { id: row.user_id, username: row.username, isAdmin: Boolean(row.is_admin) },
-      house: { id: row.house_id, name: row.name, contact: row.contact || '', email: row.email || '' }
+      house: { id: row.house_id, name: row.name, contact: row.contact || '', email: row.email || '', country: row.country || '' }
     };
   } finally {
     connection.release();
@@ -210,11 +215,11 @@ export async function endSession(token) {
 export async function readDogHouse(dogHouseId) {
   const connection = await getConnection();
   try {
-    const [house] = await connection.query('SELECT id, name, contact, email, MD5(photo) AS photo_version, created_at FROM dog_house WHERE id = ?', [dogHouseId]);
+    const [house] = await connection.query('SELECT id, name, contact, email, `country`, MD5(photo) AS photo_version, created_at FROM dog_house WHERE id = ?', [dogHouseId]);
     if (!house) throw httpError(404, 'This dog house was not found.');
     const users = await connection.query('SELECT id, username, is_admin, created_at FROM users WHERE dog_house_id = ? ORDER BY username', [dogHouseId]);
     return {
-      id: house.id, name: house.name, contact: house.contact || '', email: house.email || '',
+      id: house.id, name: house.name, contact: house.contact || '', email: house.email || '', country: house.country || '',
       photo: housePhotoLink(house.id, house.photo_version),
       createdAt: new Date(house.created_at).toISOString(),
       users: users.map(user => ({ id: user.id, username: user.username, isAdmin: Boolean(user.is_admin), createdAt: new Date(user.created_at).toISOString() }))
@@ -255,8 +260,8 @@ export async function updateDogHouse(dogHouseId, fields) {
   const connection = await getConnection();
   try {
     await connection.query(
-      `UPDATE dog_house SET name = ?, contact = ?, email = ?${photo === undefined ? '' : ', photo = ?'} WHERE id = ?`,
-      [house.name, house.contact || null, house.email || null, ...(photo === undefined ? [] : [photo]), dogHouseId]
+      `UPDATE dog_house SET name = ?, contact = ?, email = ?${countryColumn(house)}${photo === undefined ? '' : ', photo = ?'} WHERE id = ?`,
+      [house.name, house.contact || null, house.email || null, ...countryValue(house), ...(photo === undefined ? [] : [photo]), dogHouseId]
     );
   } finally {
     connection.release();
@@ -310,7 +315,7 @@ async function requireDogHouse(connection, dogHouseId) {
 export async function adminOverview() {
   const connection = await getConnection();
   try {
-    const houses = await connection.query('SELECT id, name, contact, email, created_at FROM dog_house ORDER BY name, created_at');
+    const houses = await connection.query('SELECT id, name, contact, email, `country`, created_at FROM dog_house ORDER BY name, created_at');
     const users = await connection.query(
       `SELECT u.id, u.username, u.is_admin, u.created_at, u.dog_house_id, h.name AS house_name
        FROM users u LEFT JOIN dog_house h ON h.id = u.dog_house_id ORDER BY u.username`
@@ -325,7 +330,7 @@ export async function adminOverview() {
     }
     return {
       houses: houses.map(house => ({
-        id: house.id, name: house.name, contact: house.contact || '', email: house.email || '',
+        id: house.id, name: house.name, contact: house.contact || '', email: house.email || '', country: house.country || '',
         createdAt: new Date(house.created_at).toISOString(),
         counts: { users: users.filter(user => user.dog_house_id === house.id).length, ...counts.get(house.id) }
       })),
@@ -347,8 +352,8 @@ export async function adminUpdateDogHouse(dogHouseId, fields) {
   const house = houseFields(fields);
   return inTransaction(async connection => {
     await requireDogHouse(connection, dogHouseId);
-    await connection.query('UPDATE dog_house SET name = ?, contact = ?, email = ? WHERE id = ?',
-      [house.name, house.contact || null, house.email || null, dogHouseId]);
+    await connection.query(`UPDATE dog_house SET name = ?, contact = ?, email = ?${countryColumn(house)} WHERE id = ?`,
+      [house.name, house.contact || null, house.email || null, ...countryValue(house), dogHouseId]);
   });
 }
 

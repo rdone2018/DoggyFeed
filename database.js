@@ -45,6 +45,7 @@ const schema = [
     name VARCHAR(120) NOT NULL,
     contact VARCHAR(200) NULL,
     email VARCHAR(200) NULL,
+    \`country\` VARCHAR(60) NULL,
     photo LONGTEXT NULL,
     created_at DATETIME(3) NOT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
@@ -254,7 +255,8 @@ const laterColumns = [
   ['saved_plan_items', 'auto_fill', 'TINYINT(1) NOT NULL DEFAULT 0'],
   ...dogHouseTables().map(table => [table, 'dog_house_id', 'VARCHAR(80) NULL']),
   ['users', 'is_admin', 'TINYINT(1) NOT NULL DEFAULT 0'],
-  ['dog_house', 'photo', 'LONGTEXT NULL']
+  ['dog_house', 'photo', 'LONGTEXT NULL'],
+  ['dog_house', 'country', 'VARCHAR(60) NULL']
 ];
 
 // Tables whose rows belong to a dog house.
@@ -272,11 +274,11 @@ export async function firstDogHouseId(connection) {
   return createDogHouse(connection, { name: 'My dog house' });
 }
 
-export async function createDogHouse(connection, { name, contact = '', email = '' }) {
+export async function createDogHouse(connection, { name, contact = '', email = '', country = '' }) {
   const id = `house-${randomUUID()}`;
   await connection.query(
-    'INSERT INTO dog_house (id, name, contact, email, created_at) VALUES (?, ?, ?, ?, ?)',
-    [id, text(name, 120) || 'My dog house', text(contact, 200) || null, text(email, 200) || null, new Date()]
+    'INSERT INTO dog_house (id, name, contact, email, `country`, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    [id, text(name, 120) || 'My dog house', text(contact, 200) || null, text(email, 200) || null, text(country, 60) || null, new Date()]
   );
   return id;
 }
