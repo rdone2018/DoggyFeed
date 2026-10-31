@@ -101,6 +101,21 @@ const schema = [
     daily_energy_custom TINYINT(1) NULL,
     INDEX weight_history_dog_id (dog_id, recorded_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // Dog's calendar. dog_id is NULL for an event that is for all dogs. starts_at is local wall time
+  // (YYYY-MM-DDTHH:MM), so an event keeps its time whatever the server's time zone. repeat_kind is none, daily,
+  // weekly, yearly or custom (every repeat_days days). Names are quoted, as some are SQL keywords.
+  `CREATE TABLE IF NOT EXISTS calendar_events (
+    \`id\` VARCHAR(80) NOT NULL PRIMARY KEY,
+    \`dog_id\` VARCHAR(80) NULL,
+    \`description\` VARCHAR(200) NOT NULL,
+    \`location\` VARCHAR(200) NULL,
+    \`starts_at\` VARCHAR(16) NOT NULL,
+    \`duration_minutes\` INT NOT NULL DEFAULT 60,
+    \`url\` VARCHAR(500) NULL,
+    \`repeat_kind\` VARCHAR(10) NOT NULL DEFAULT 'none',
+    \`repeat_days\` INT NULL,
+    INDEX calendar_events_starts_at (\`starts_at\`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   // Food served history. Rows are only added when a bowl is served and are not part of the
   // application data that every save replaces. Food details are copied so the history stays
   // correct after foods are edited or deleted.
@@ -278,6 +293,19 @@ function cleanState(state) {
         dailyEnergy: Number(entry.dailyEnergy) > 0 ? amount(entry.dailyEnergy, null, 99999999) : null,
         dailyEnergyCustom: Number(entry.dailyEnergy) > 0 ? (entry.dailyEnergyCustom ? 1 : 0) : null
       })),
+    // null when the browser sent no events (a page from before the calendar), so stored events are kept.
+    events: Array.isArray(state.events) ? uniqueById(state.events)
+      .filter(([, event]) => text(event.description, 200) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(event.start || '')))
+      .map(([id, event]) => {
+        const repeat = ['daily', 'weekly', 'yearly', 'custom'].includes(event.repeat) ? event.repeat : 'none';
+        const repeatDays = repeat === 'custom' ? Math.round(amount(event.repeatDays, 0, 3650)) : 0;
+        return {
+          id, dogId: text(event.dogId, 80) || null, description: text(event.description, 200),
+          location: text(event.location, 200) || null, start: String(event.start),
+          duration: Math.round(amount(event.duration, 60, 525600)), url: webUrl(event.url),
+          repeat: repeat === 'custom' && repeatDays < 1 ? 'none' : repeat, repeatDays: repeatDays >= 1 ? repeatDays : null
+        };
+      }) : null,
     selectedDog: text(state.selectedDog, 255)
   };
 }
@@ -373,6 +401,17 @@ export async function replaceState(rawState, baseRevision = null) {
       );
     }
 
+    if (state.events) {
+      await connection.query('DELETE FROM calendar_events');
+      for (const event of state.events) {
+        await connection.query(
+          `INSERT INTO calendar_events (\`id\`, \`dog_id\`, \`description\`, \`location\`, \`starts_at\`, \`duration_minutes\`, \`url\`, \`repeat_kind\`, \`repeat_days\`)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [event.id, event.dogId, event.description, event.location, event.start, event.duration, event.url, event.repeat, event.repeatDays]
+        );
+      }
+    }
+
     if (state.selectedDog) {
       await connection.query(
         "INSERT INTO app_settings (setting_key, setting_value) VALUES ('selectedDog', ?)",
@@ -443,14 +482,15 @@ export async function initializeDatabase() {
 export async function readState() {
   const connection = await getConnection();
   try {
-    const [dogs, foods, mealRows, plans, planRows, settings, weightRows] = await Promise.all([
+    const [dogs, foods, mealRows, plans, planRows, settings, weightRows, eventRows] = await Promise.all([
       connection.query('SELECT * FROM dogs ORDER BY name'),
       connection.query('SELECT * FROM foods ORDER BY name'),
       connection.query('SELECT * FROM meal_items ORDER BY dog_id, position'),
       connection.query('SELECT * FROM saved_plans ORDER BY name'),
       connection.query('SELECT * FROM saved_plan_items ORDER BY plan_id, position'),
       connection.query("SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('selectedDog', 'hasApplicationState', 'stateRevision')"),
-      connection.query('SELECT * FROM weight_history ORDER BY recorded_at')
+      connection.query('SELECT * FROM weight_history ORDER BY recorded_at'),
+      connection.query('SELECT * FROM calendar_events ORDER BY `starts_at`')
     ]);
 
     if (!settings.some(setting => setting.setting_key === 'hasApplicationState')) return null;
@@ -480,6 +520,11 @@ export async function readState() {
         desiredWeight: row.desired_weight === null || row.desired_weight === undefined ? null : Number(row.desired_weight),
         dailyEnergy: row.daily_energy === null || row.daily_energy === undefined ? null : Number(row.daily_energy),
         dailyEnergyCustom: Boolean(row.daily_energy_custom)
+      })),
+      events: eventRows.map(row => ({
+        id: row.id, dogId: row.dog_id || '', description: row.description, location: row.location || '',
+        start: row.starts_at, duration: Number(row.duration_minutes) || 0, url: row.url || '',
+        repeat: row.repeat_kind || 'none', repeatDays: row.repeat_days === null || row.repeat_days === undefined ? '' : Number(row.repeat_days)
       })),
       selectedDog: settings.find(setting => setting.setting_key === 'selectedDog')?.setting_value || '',
       revision: Number(settings.find(setting => setting.setting_key === 'stateRevision')?.setting_value) || 0
