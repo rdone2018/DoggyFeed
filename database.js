@@ -98,6 +98,25 @@ const schema = [
     \`portion\` DECIMAL(8,1) NULL,
     \`stock\` DECIMAL(10,2) NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // Global food library: foods shared by all dog houses, kept by administrators. Same columns as foods, without
+  // dog_house_id (it belongs to no dog house) and stock (a dog house's own count), plus the country.
+  `CREATE TABLE IF NOT EXISTS global_food_library (
+    id VARCHAR(80) NOT NULL PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    kcal DECIMAL(10,2) NOT NULL DEFAULT 0,
+    protein DECIMAL(10,2) NOT NULL DEFAULT 0,
+    fat DECIMAL(10,2) NOT NULL DEFAULT 0,
+    fiber DECIMAL(10,2) NOT NULL DEFAULT 0,
+    image LONGTEXT NULL,
+    manufacturer_url VARCHAR(500) NULL,
+    shop_url VARCHAR(500) NULL,
+    \`portion\` DECIMAL(8,1) NULL,
+    \`country\` VARCHAR(60) NULL,
+    updated_at DATETIME(3) NOT NULL,
+    INDEX global_food_library_name (name),
+    INDEX global_food_library_country (\`country\`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS meal_items (
     dog_house_id VARCHAR(80) NULL,
     dog_id VARCHAR(80) NOT NULL,
@@ -691,9 +710,12 @@ function isPictureLink(value, kind, id) {
 export async function readPicture(dogHouseId, kind, id) {
   const connection = await getConnection();
   try {
+    // Global food library pictures are shared by all dog houses, so any signed-in user may load them.
     const [row] = kind === 'house'
       ? await connection.query('SELECT photo AS picture FROM dog_house WHERE id = ? AND id = ?', [id, dogHouseId])
-      : await connection.query(`SELECT ${kind === 'dog' ? 'photo' : 'image'} AS picture FROM ${kind === 'dog' ? 'dogs' : 'foods'} WHERE id = ? AND dog_house_id = ?`, [id, dogHouseId]);
+      : kind === 'global'
+        ? await connection.query('SELECT image AS picture FROM global_food_library WHERE id = ?', [id])
+        : await connection.query(`SELECT ${kind === 'dog' ? 'photo' : 'image'} AS picture FROM ${kind === 'dog' ? 'dogs' : 'foods'} WHERE id = ? AND dog_house_id = ?`, [id, dogHouseId]);
     // Only image types: anything else stored here is not served, so it can never run as a page on this address.
     const match = /^data:(image\/(?:jpeg|png|webp|gif));base64,(.*)$/s.exec(row?.picture || '');
     return match ? { type: match[1], data: Buffer.from(match[2], 'base64') } : null;

@@ -9,6 +9,7 @@ import { readErrors, readSaves, recordError, recordSave } from './errorlog.js';
 import * as housesModule from './modules/houses.js';
 import * as mealsModule from './modules/meals.js';
 import * as formGuard from './modules/form-guard.js';
+import * as globalFoods from './modules/global-foods.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const maxBodyBytes = 20 * 1024 * 1024;
@@ -409,6 +410,28 @@ const server = http.createServer(async (request, response) => {
         sendJson(response, 200, await housesModule.adminOverview());
         return;
       }
+      // Global food library: list, add or change (with a picture), delete selected foods, and import CSV rows.
+      if (pathname === '/api/admin/global-foods' || pathname.startsWith('/api/admin/global-foods/')) {
+        if (request.method === 'GET' && pathname === '/api/admin/global-foods') {
+          sendJson(response, 200, { foods: await globalFoods.listGlobalFoods() });
+          return;
+        }
+        const action = pathname.slice('/api/admin/global-foods/'.length);
+        if (request.method !== 'POST' || !['save', 'delete', 'import'].includes(action)) {
+          sendJson(response, 404, { error: 'Not found.' });
+          return;
+        }
+        const body = await readRequestJson(request, 8 * 1024 * 1024) || {};
+        let result = {};
+        if (action === 'save') result = { id: await globalFoods.saveGlobalFood(body) };
+        if (action === 'delete') result = { deleted: await globalFoods.deleteGlobalFoods(body.ids) };
+        if (action === 'import') {
+          result = await globalFoods.importGlobalFoods(body.foods);
+          console.log(`Global food library import by ${session.user.username}: ${result.added} added, ${result.updated} updated.`);
+        }
+        sendJson(response, 200, { ...result, foods: await globalFoods.listGlobalFoods() });
+        return;
+      }
       if (request.method !== 'POST') {
         sendJson(response, 404, { error: 'Not found.' });
         return;
@@ -483,7 +506,7 @@ const server = http.createServer(async (request, response) => {
 
   // Dog photos and food pictures, linked from the app data. Each link carries the picture's version, so the
   // browser may keep it for good and fetches a changed picture under its new link.
-  const pictureMatch = /^\/api\/pictures\/(dog|food|house)\/([^/]+)$/.exec(pathname);
+  const pictureMatch = /^\/api\/pictures\/(dog|food|house|global)\/([^/]+)$/.exec(pathname);
   if (pictureMatch && request.method === 'GET') {
     try {
       const picture = await readPicture(dogHouseId, pictureMatch[1], decodeURIComponent(pictureMatch[2]));
