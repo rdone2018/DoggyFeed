@@ -19,9 +19,18 @@ After updating DoggyFeed (for example with `git pull`), restart the server. The 
 
 If DoggyFeed runs behind a reverse proxy such as nginx, allow request bodies of a few megabytes (for example `client_max_body_size 20m;`) so new dog photos and food pictures can be saved. Pictures already stored are not sent again with later saves. When the app loads, its data carries links to the pictures instead of the pictures themselves, and the browser fetches and caches each picture from `/api/pictures/`.
 
-Open `http://127.0.0.1:3000/diagnostics` to inspect database tables, row counts, columns, and stored values. This read-only page is restricted to requests from the local computer.
+Open `http://127.0.0.1:3000/diagnostics` to inspect database tables, row counts, columns, and stored values. This read-only page is restricted to requests from the local computer. It shows every dog house's data, but never password hashes or session tokens.
 
 The app stores dog profiles, foods and pictures, meal contents, saved plans, and the selected dog in MariaDB tables. If an existing `data/state.json` file is present and the database has not yet been initialized, its contents are imported once. The database env file and `data/` directory are ignored by Git. Database settings can also be provided through environment variables: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD`.
+
+## Dog houses and sign-in
+
+All data belongs to a dog house (table `dog_house`: name, contact, email), and every data table has a `dog_house_id` column. Users sign in with a username and password and only ever see and change their own dog house's dogs, foods, bowls, plans, weight history, calendar and served bowls.
+
+- **First start after updating:** the server moves all existing data into a dog house called "My dog house". Opening DoggyFeed then shows "Set up DoggyFeed", where you name the dog house and create the first user. Back up the database (for example with `mysqldump`) before the first start, as this changes every table.
+- **New dog houses:** anyone who can reach DoggyFeed can create a new dog house with its first user from the sign-in screen ("Create a new dog house"). A new dog house starts with sample dogs and foods.
+- **Dog house page:** edit the dog house's name, contact and email, add users, set passwords (which signs that user out everywhere else) and remove users. Usernames are unique across all dog houses.
+- **Security:** passwords are stored only as scrypt hashes. A session lasts 30 days from its last use and is kept in an HttpOnly cookie; the database stores only a hash of the session token. After 5 wrong passwords for a username, sign-in is refused for a minute. Behind an https proxy, the cookie is marked Secure when the proxy sends `X-Forwarded-Proto: https`.
 
 ## Features
 

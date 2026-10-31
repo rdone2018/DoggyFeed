@@ -1,6 +1,6 @@
 import mariadb from 'mariadb';
 import dotenv from 'dotenv';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,13 +33,41 @@ export async function getConnection() {
   return pool.getConnection();
 }
 
+// Every row of app data belongs to one dog house (dog_house_id), and every read and write is limited to the dog
+// house of the signed-in user. app_settings keys of a dog house are stored as "<dog house id>:<key>".
 const schema = [
   `CREATE TABLE IF NOT EXISTS app_settings (
     setting_key VARCHAR(80) NOT NULL PRIMARY KEY,
     setting_value VARCHAR(255) NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS dog_house (
+    id VARCHAR(80) NOT NULL PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    contact VARCHAR(200) NULL,
+    email VARCHAR(200) NULL,
+    created_at DATETIME(3) NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // Usernames are stored in lower case and are unique across all dog houses, so signing in needs no dog house.
+  // password_hash is an scrypt hash with its own salt; passwords are never stored.
+  `CREATE TABLE IF NOT EXISTS users (
+    id VARCHAR(80) NOT NULL PRIMARY KEY,
+    dog_house_id VARCHAR(80) NOT NULL,
+    username VARCHAR(80) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    UNIQUE KEY users_username (username),
+    INDEX users_dog_house (dog_house_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // Signed-in browsers. The cookie holds a random token; only its SHA-256 hash is stored here.
+  `CREATE TABLE IF NOT EXISTS sessions (
+    token_hash CHAR(64) NOT NULL PRIMARY KEY,
+    user_id VARCHAR(80) NOT NULL,
+    expires_at DATETIME(3) NOT NULL,
+    INDEX sessions_user (user_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS dogs (
     id VARCHAR(80) NOT NULL PRIMARY KEY,
+    dog_house_id VARCHAR(80) NULL,
     name VARCHAR(100) NOT NULL,
     weight DECIMAL(8,2) NOT NULL,
     activity DECIMAL(5,2) NOT NULL,
@@ -55,6 +83,7 @@ const schema = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS foods (
     id VARCHAR(80) NOT NULL PRIMARY KEY,
+    dog_house_id VARCHAR(80) NULL,
     name VARCHAR(120) NOT NULL,
     category VARCHAR(50) NOT NULL,
     kcal DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -68,6 +97,7 @@ const schema = [
     \`stock\` DECIMAL(10,2) NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS meal_items (
+    dog_house_id VARCHAR(80) NULL,
     dog_id VARCHAR(80) NOT NULL,
     position INT NOT NULL,
     food_id VARCHAR(80) NOT NULL,
@@ -78,12 +108,14 @@ const schema = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS saved_plans (
     id VARCHAR(80) NOT NULL PRIMARY KEY,
+    dog_house_id VARCHAR(80) NULL,
     name VARCHAR(120) NOT NULL,
     saved_at VARCHAR(40) NULL,
     updated_at VARCHAR(40) NULL,
     dog_id VARCHAR(80) NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS saved_plan_items (
+    dog_house_id VARCHAR(80) NULL,
     plan_id VARCHAR(80) NOT NULL,
     position INT NOT NULL,
     food_id VARCHAR(80) NOT NULL,
@@ -94,6 +126,7 @@ const schema = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS weight_history (
     id VARCHAR(80) NOT NULL PRIMARY KEY,
+    dog_house_id VARCHAR(80) NULL,
     dog_id VARCHAR(80) NOT NULL,
     recorded_at VARCHAR(40) NOT NULL,
     weight DECIMAL(8,2) NOT NULL,
@@ -107,6 +140,7 @@ const schema = [
   // weekly, yearly or custom (every repeat_days days). Names are quoted, as some are SQL keywords.
   `CREATE TABLE IF NOT EXISTS calendar_events (
     \`id\` VARCHAR(80) NOT NULL PRIMARY KEY,
+    \`dog_house_id\` VARCHAR(80) NULL,
     \`dog_id\` VARCHAR(80) NULL,
     \`description\` VARCHAR(200) NOT NULL,
     \`location\` VARCHAR(200) NULL,
@@ -124,6 +158,7 @@ const schema = [
   // correct after foods are edited or deleted.
   `CREATE TABLE IF NOT EXISTS served_meals (
     id VARCHAR(80) NOT NULL PRIMARY KEY,
+    dog_house_id VARCHAR(80) NULL,
     dog_id VARCHAR(80) NOT NULL,
     dog_name VARCHAR(100) NOT NULL,
     served_at DATETIME(3) NOT NULL,
@@ -137,6 +172,7 @@ const schema = [
     INDEX served_meals_dog_id (dog_id, served_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS served_meal_items (
+    dog_house_id VARCHAR(80) NULL,
     served_meal_id VARCHAR(80) NOT NULL,
     position INT NOT NULL,
     food_id VARCHAR(80) NOT NULL,
@@ -175,8 +211,60 @@ const laterColumns = [
   ['calendar_events', 'reminder_kind', 'VARCHAR(10) NULL'],
   ['calendar_events', 'reminder_days', 'INT NULL'],
   ['meal_items', 'auto_fill', 'TINYINT(1) NOT NULL DEFAULT 0'],
-  ['saved_plan_items', 'auto_fill', 'TINYINT(1) NOT NULL DEFAULT 0']
+  ['saved_plan_items', 'auto_fill', 'TINYINT(1) NOT NULL DEFAULT 0'],
+  ...dogHouseTables().map(table => [table, 'dog_house_id', 'VARCHAR(80) NULL'])
 ];
+
+// Tables whose rows belong to a dog house.
+function dogHouseTables() {
+  return ['dogs', 'foods', 'meal_items', 'saved_plans', 'saved_plan_items', 'weight_history', 'calendar_events',
+    'served_meals', 'served_meal_items'];
+}
+
+const houseKey = (dogHouseId, key) => `${dogHouseId}:${key}`;
+
+// The oldest dog house, or a new one called "My dog house" when there is none yet.
+export async function firstDogHouseId(connection) {
+  const [house] = await connection.query('SELECT id FROM dog_house ORDER BY created_at, id LIMIT 1');
+  if (house) return house.id;
+  return createDogHouse(connection, { name: 'My dog house' });
+}
+
+export async function createDogHouse(connection, { name, contact = '', email = '' }) {
+  const id = `house-${randomUUID()}`;
+  await connection.query(
+    'INSERT INTO dog_house (id, name, contact, email, created_at) VALUES (?, ?, ?, ?, ?)',
+    [id, text(name, 120) || 'My dog house', text(contact, 200) || null, text(email, 200) || null, new Date()]
+  );
+  return id;
+}
+
+// Data from before dog houses (rows without dog_house_id, and the settings selectedDog, hasApplicationState and
+// stateRevision) is moved into the oldest dog house, which is created as "My dog house" when needed.
+async function assignDataToDogHouse(connection) {
+  let unassigned = false;
+  for (const table of dogHouseTables()) {
+    const [row] = await connection.query(`SELECT COUNT(*) AS count FROM \`${table}\` WHERE dog_house_id IS NULL`);
+    if (Number(row.count) > 0) unassigned = true;
+  }
+  const legacySettings = await connection.query(
+    "SELECT setting_key FROM app_settings WHERE setting_key IN ('selectedDog', 'hasApplicationState', 'stateRevision')"
+  );
+  if (!unassigned && !legacySettings.length) return;
+  const dogHouseId = await firstDogHouseId(connection);
+  for (const table of dogHouseTables()) {
+    await connection.query(`UPDATE \`${table}\` SET dog_house_id = ? WHERE dog_house_id IS NULL`, [dogHouseId]);
+  }
+  for (const { setting_key: key } of legacySettings) {
+    await connection.query(
+      `INSERT INTO app_settings (setting_key, setting_value) SELECT ?, setting_value FROM app_settings WHERE setting_key = ?
+       ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+      [houseKey(dogHouseId, key), key]
+    );
+    await connection.query('DELETE FROM app_settings WHERE setting_key = ?', [key]);
+  }
+  console.log(`Moved the existing DoggyFeed data into the dog house ${dogHouseId}.`);
+}
 
 async function addMissingColumns(connection) {
   const rows = await connection.query(
@@ -332,7 +420,9 @@ function cleanState(state) {
 // baseRevision is the save number the browser's data was loaded from. Every save replaces all data, so a
 // browser holding older data (another tab, computer or phone) would silently undo newer saves; such a save is
 // refused instead. Leaving baseRevision out skips the check, for example to keep a version on purpose.
-export async function replaceState(rawState, baseRevision = null) {
+// Only the given dog house's rows are replaced; other dog houses are not touched.
+export async function replaceState(dogHouseId, rawState, baseRevision = null) {
+  if (!dogHouseId) throw new Error('A dog house is needed to save data.');
   const state = cleanState(rawState);
   const connection = await getConnection();
   try {
@@ -340,7 +430,8 @@ export async function replaceState(rawState, baseRevision = null) {
 
     if (Number.isInteger(baseRevision)) {
       const [current] = await connection.query(
-        "SELECT setting_value FROM app_settings WHERE setting_key = 'stateRevision' FOR UPDATE"
+        'SELECT setting_value FROM app_settings WHERE setting_key = ? FOR UPDATE',
+        [houseKey(dogHouseId, 'stateRevision')]
       );
       const currentRevision = Number(current?.setting_value) || 0;
       if (currentRevision !== baseRevision) {
@@ -357,25 +448,22 @@ export async function replaceState(rawState, baseRevision = null) {
     const storedPhotos = new Map();
     const storedImages = new Map();
     if (state.dogs.some(dog => dog.keepPhoto)) {
-      for (const row of await connection.query('SELECT id, photo FROM dogs')) storedPhotos.set(row.id, row.photo);
+      for (const row of await connection.query('SELECT id, photo FROM dogs WHERE dog_house_id = ?', [dogHouseId])) storedPhotos.set(row.id, row.photo);
     }
     if (state.foods.some(food => food.keepImage)) {
-      for (const row of await connection.query('SELECT id, image FROM foods')) storedImages.set(row.id, row.image);
+      for (const row of await connection.query('SELECT id, image FROM foods WHERE dog_house_id = ?', [dogHouseId])) storedImages.set(row.id, row.image);
     }
 
-    await connection.query('DELETE FROM saved_plan_items');
-    await connection.query('DELETE FROM saved_plans');
-    await connection.query('DELETE FROM weight_history');
-    await connection.query('DELETE FROM meal_items');
-    await connection.query('DELETE FROM dogs');
-    await connection.query('DELETE FROM foods');
-    await connection.query("DELETE FROM app_settings WHERE setting_key = 'selectedDog'");
+    for (const table of ['saved_plan_items', 'saved_plans', 'weight_history', 'meal_items', 'dogs', 'foods']) {
+      await connection.query(`DELETE FROM \`${table}\` WHERE dog_house_id = ?`, [dogHouseId]);
+    }
+    await connection.query('DELETE FROM app_settings WHERE setting_key = ?', [houseKey(dogHouseId, 'selectedDog')]);
 
     for (const dog of state.dogs) {
       await connection.query(
-        `INSERT INTO dogs (id, name, weight, activity, life_stage, breed, gender, heat1, heat2, photo, desired_weight, meals_per_day, daily_energy)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [dog.id, dog.name, dog.weight, dog.activity, dog.lifeStage,
+        `INSERT INTO dogs (id, dog_house_id, name, weight, activity, life_stage, breed, gender, heat1, heat2, photo, desired_weight, meals_per_day, daily_energy)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [dog.id, dogHouseId, dog.name, dog.weight, dog.activity, dog.lifeStage,
           dog.breed, dog.gender, dog.heat1, dog.heat2, dog.keepPhoto ? storedPhotos.get(dog.id) ?? null : dog.photo,
           dog.desiredWeight, dog.mealsPerDay, dog.dailyEnergy]
       );
@@ -383,9 +471,9 @@ export async function replaceState(rawState, baseRevision = null) {
 
     for (const food of state.foods) {
       await connection.query(
-        `INSERT INTO foods (id, name, category, kcal, protein, fat, fiber, image, manufacturer_url, shop_url, \`portion\`, \`stock\`)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [food.id, food.name, food.category, food.kcal, food.protein, food.fat, food.fiber,
+        `INSERT INTO foods (id, dog_house_id, name, category, kcal, protein, fat, fiber, image, manufacturer_url, shop_url, \`portion\`, \`stock\`)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [food.id, dogHouseId, food.name, food.category, food.kcal, food.protein, food.fat, food.fiber,
           food.keepImage ? storedImages.get(food.id) ?? null : food.image, food.manufacturerUrl, food.shopUrl, food.portion, food.stock]
       );
     }
@@ -393,59 +481,61 @@ export async function replaceState(rawState, baseRevision = null) {
     for (const [dogId, items] of state.meals) {
       for (const [position, item] of items.entries()) {
         await connection.query(
-          'INSERT INTO meal_items (dog_id, position, food_id, grams, auto_fill) VALUES (?, ?, ?, ?, ?)',
-          [dogId, position, item.foodId, item.grams, item.auto]
+          'INSERT INTO meal_items (dog_house_id, dog_id, position, food_id, grams, auto_fill) VALUES (?, ?, ?, ?, ?, ?)',
+          [dogHouseId, dogId, position, item.foodId, item.grams, item.auto]
         );
       }
     }
 
     for (const plan of state.savedPlans) {
       await connection.query(
-        'INSERT INTO saved_plans (id, name, saved_at, updated_at, dog_id) VALUES (?, ?, ?, ?, ?)',
-        [plan.id, plan.name, plan.savedAt, plan.updatedAt, plan.dogId]
+        'INSERT INTO saved_plans (id, dog_house_id, name, saved_at, updated_at, dog_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [plan.id, dogHouseId, plan.name, plan.savedAt, plan.updatedAt, plan.dogId]
       );
       for (const [position, item] of plan.items.entries()) {
         await connection.query(
-          'INSERT INTO saved_plan_items (plan_id, position, food_id, grams, auto_fill) VALUES (?, ?, ?, ?, ?)',
-          [plan.id, position, item.foodId, item.grams, item.auto]
+          'INSERT INTO saved_plan_items (dog_house_id, plan_id, position, food_id, grams, auto_fill) VALUES (?, ?, ?, ?, ?, ?)',
+          [dogHouseId, plan.id, position, item.foodId, item.grams, item.auto]
         );
       }
     }
 
     for (const entry of state.weightHistory) {
       await connection.query(
-        `INSERT INTO weight_history (id, dog_id, recorded_at, weight, desired_weight, daily_energy, daily_energy_custom)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [entry.id, entry.dogId, entry.date, entry.weight, entry.desiredWeight, entry.dailyEnergy, entry.dailyEnergyCustom]
+        `INSERT INTO weight_history (id, dog_house_id, dog_id, recorded_at, weight, desired_weight, daily_energy, daily_energy_custom)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [entry.id, dogHouseId, entry.dogId, entry.date, entry.weight, entry.desiredWeight, entry.dailyEnergy, entry.dailyEnergyCustom]
       );
     }
 
     if (state.events) {
-      await connection.query('DELETE FROM calendar_events');
+      await connection.query('DELETE FROM calendar_events WHERE dog_house_id = ?', [dogHouseId]);
       for (const event of state.events) {
         await connection.query(
-          `INSERT INTO calendar_events (\`id\`, \`dog_id\`, \`description\`, \`location\`, \`starts_at\`, \`duration_minutes\`, \`url\`, \`repeat_kind\`, \`repeat_days\`, \`reminder_kind\`, \`reminder_days\`)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [event.id, event.dogId, event.description, event.location, event.start, event.duration, event.url, event.repeat, event.repeatDays, event.reminder, event.reminderDays]
+          `INSERT INTO calendar_events (\`id\`, \`dog_house_id\`, \`dog_id\`, \`description\`, \`location\`, \`starts_at\`, \`duration_minutes\`, \`url\`, \`repeat_kind\`, \`repeat_days\`, \`reminder_kind\`, \`reminder_days\`)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [event.id, dogHouseId, event.dogId, event.description, event.location, event.start, event.duration, event.url, event.repeat, event.repeatDays, event.reminder, event.reminderDays]
         );
       }
     }
 
     if (state.selectedDog) {
       await connection.query(
-        "INSERT INTO app_settings (setting_key, setting_value) VALUES ('selectedDog', ?)",
-        [state.selectedDog]
+        'INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?)',
+        [houseKey(dogHouseId, 'selectedDog'), state.selectedDog]
       );
     }
     await connection.query(
-      "INSERT INTO app_settings (setting_key, setting_value) VALUES ('hasApplicationState', '1') ON DUPLICATE KEY UPDATE setting_value = '1'"
+      "INSERT INTO app_settings (setting_key, setting_value) VALUES (?, '1') ON DUPLICATE KEY UPDATE setting_value = '1'",
+      [houseKey(dogHouseId, 'hasApplicationState')]
     );
     // Every save gets a higher revision, so the browser can tell when it is shown older data.
     await connection.query(
-      `INSERT INTO app_settings (setting_key, setting_value) VALUES ('stateRevision', '1')
-       ON DUPLICATE KEY UPDATE setting_value = CAST(setting_value AS UNSIGNED) + 1`
+      `INSERT INTO app_settings (setting_key, setting_value) VALUES (?, '1')
+       ON DUPLICATE KEY UPDATE setting_value = CAST(setting_value AS UNSIGNED) + 1`,
+      [houseKey(dogHouseId, 'stateRevision')]
     );
-    const [revisionRow] = await connection.query("SELECT setting_value FROM app_settings WHERE setting_key = 'stateRevision'");
+    const [revisionRow] = await connection.query('SELECT setting_value FROM app_settings WHERE setting_key = ?', [houseKey(dogHouseId, 'stateRevision')]);
     await connection.commit();
     return {
       revision: Number(revisionRow?.setting_value) || 0,
@@ -481,6 +571,7 @@ export async function initializeDatabase() {
   try {
     for (const statement of schema) await connection.query(statement);
     await addMissingColumns(connection);
+    await assignDataToDogHouse(connection);
     const rows = await connection.query(
       "SELECT setting_value FROM app_settings WHERE setting_key = 'schemaInitialized'"
     );
@@ -490,7 +581,11 @@ export async function initializeDatabase() {
   }
 
   const legacyState = await readLegacyState();
-  if (legacyState) await replaceState(legacyState);
+  if (legacyState) {
+    const connection = await getConnection();
+    const dogHouseId = await firstDogHouseId(connection).finally(() => connection.release());
+    await replaceState(dogHouseId, legacyState);
+  }
   await pool.query(
     `INSERT INTO app_settings (setting_key, setting_value) VALUES ('schemaInitialized', '1')
      ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`
@@ -498,19 +593,24 @@ export async function initializeDatabase() {
   if (legacyState) console.log('Imported existing JSON application data into MariaDB.');
 }
 
-export async function readState() {
+// Returns the dog house's app data, or null when nothing has been saved for it yet.
+export async function readState(dogHouseId) {
   const connection = await getConnection();
   try {
-    const [dogs, foods, mealRows, plans, planRows, settings, weightRows, eventRows] = await Promise.all([
-      connection.query('SELECT * FROM dogs ORDER BY name'),
-      connection.query('SELECT * FROM foods ORDER BY name'),
-      connection.query('SELECT * FROM meal_items ORDER BY dog_id, position'),
-      connection.query('SELECT * FROM saved_plans ORDER BY name'),
-      connection.query('SELECT * FROM saved_plan_items ORDER BY plan_id, position'),
-      connection.query("SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('selectedDog', 'hasApplicationState', 'stateRevision')"),
-      connection.query('SELECT * FROM weight_history ORDER BY recorded_at'),
-      connection.query('SELECT * FROM calendar_events ORDER BY `starts_at`')
+    const house = [dogHouseId];
+    const [dogs, foods, mealRows, plans, planRows, settingRows, weightRows, eventRows] = await Promise.all([
+      connection.query('SELECT * FROM dogs WHERE dog_house_id = ? ORDER BY name', house),
+      connection.query('SELECT * FROM foods WHERE dog_house_id = ? ORDER BY name', house),
+      connection.query('SELECT * FROM meal_items WHERE dog_house_id = ? ORDER BY dog_id, position', house),
+      connection.query('SELECT * FROM saved_plans WHERE dog_house_id = ? ORDER BY name', house),
+      connection.query('SELECT * FROM saved_plan_items WHERE dog_house_id = ? ORDER BY plan_id, position', house),
+      connection.query('SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN (?, ?, ?)',
+        ['selectedDog', 'hasApplicationState', 'stateRevision'].map(key => houseKey(dogHouseId, key))),
+      connection.query('SELECT * FROM weight_history WHERE dog_house_id = ? ORDER BY recorded_at', house),
+      connection.query('SELECT * FROM calendar_events WHERE dog_house_id = ? ORDER BY `starts_at`', house)
     ]);
+    // Setting keys without the "<dog house id>:" prefix.
+    const settings = settingRows.map(row => ({ ...row, setting_key: row.setting_key.slice(dogHouseId.length + 1) }));
 
     if (!settings.some(setting => setting.setting_key === 'hasApplicationState')) return null;
 
@@ -571,11 +671,11 @@ function isPictureLink(value, kind, id) {
 }
 
 // Returns { type, data } for a stored dog photo or food picture, or null when there is none.
-export async function readPicture(kind, id) {
+export async function readPicture(dogHouseId, kind, id) {
   const [table, column] = kind === 'dog' ? ['dogs', 'photo'] : ['foods', 'image'];
   const connection = await getConnection();
   try {
-    const [row] = await connection.query(`SELECT ${column} AS picture FROM ${table} WHERE id = ?`, [id]);
+    const [row] = await connection.query(`SELECT ${column} AS picture FROM ${table} WHERE id = ? AND dog_house_id = ?`, [id, dogHouseId]);
     // Only image types: anything else stored here is not served, so it can never run as a page on this address.
     const match = /^data:(image\/(?:jpeg|png|webp|gif));base64,(.*)$/s.exec(row?.picture || '');
     return match ? { type: match[1], data: Buffer.from(match[2], 'base64') } : null;
@@ -585,14 +685,14 @@ export async function readPicture(kind, id) {
 }
 
 let writeQueue = Promise.resolve();
-export function writeState(state, baseRevision = null) {
-  const write = writeQueue.then(() => replaceState(state, baseRevision));
+export function writeState(dogHouseId, state, baseRevision = null) {
+  const write = writeQueue.then(() => replaceState(dogHouseId, state, baseRevision));
   writeQueue = write.catch(() => {});
   return write;
 }
 
-export async function readRevision() {
-  const rows = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'stateRevision'");
+export async function readRevision(dogHouseId) {
+  const rows = await pool.query('SELECT setting_value FROM app_settings WHERE setting_key = ?', [houseKey(dogHouseId, 'stateRevision')]);
   return Number(rows[0]?.setting_value) || 0;
 }
 
@@ -624,6 +724,8 @@ export async function readDatabaseDiagnostics() {
         rowCount: Number(rowCount),
         columns: columns.map(column => column.columnName),
         rows: rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => {
+          // Password hashes and session tokens are never shown, not even on this local page.
+          if (key === 'password_hash' || key === 'token_hash') return [key, '(hidden)'];
           if ((key === 'image' || key === 'photo') && typeof value === 'string' && value.startsWith('data:image/')) {
             return [key, {
               type: 'image',

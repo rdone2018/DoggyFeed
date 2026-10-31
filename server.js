@@ -6,8 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { closeDatabase, initializeDatabase, readDatabaseDiagnostics, readPicture, readRevision, readState, writeState } from './database.js';
 import { readErrors, readSaves, recordError, recordSave } from './errorlog.js';
-import * as dogsModule from './modules/dogs.js';
-import * as foodsModule from './modules/foods.js';
+import * as housesModule from './modules/houses.js';
 import * as mealsModule from './modules/meals.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -97,16 +96,42 @@ function readRequestJson(request, maxBytes = maxBodyBytes) {
   });
 }
 
-// Returns the decoded id from paths like /api/dogs/<id>, or null when the path does not match.
-function routeId(pathname, prefix) {
-  if (!pathname.startsWith(prefix)) return null;
-  const rest = pathname.slice(prefix.length);
-  if (!rest || rest.includes('/')) return null;
-  try {
-    return decodeURIComponent(rest);
-  } catch {
-    return null;
+// Sign-in. The session cookie is HttpOnly (page scripts cannot read it) and SameSite=Lax (other sites cannot send
+// it along with their requests); it is marked Secure when DoggyFeed is reached over https.
+const SESSION_COOKIE = 'doggyfeed_session';
+
+function sessionToken(request) {
+  for (const part of String(request.headers.cookie || '').split(';')) {
+    const [name, ...value] = part.trim().split('=');
+    if (name === SESSION_COOKIE) return decodeURIComponent(value.join('='));
   }
+  return '';
+}
+
+function sessionCookie(request, token, maxAgeSeconds) {
+  const secure = request.socket.encrypted || String(request.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}${secure ? '; Secure' : ''}`;
+}
+
+// The signed-in user and their dog house, or null after answering 401 (the page then shows the sign-in screen).
+async function requireSession(request, response) {
+  const session = await housesModule.readSession(sessionToken(request));
+  if (!session) sendJson(response, 401, { error: 'Sign in to DoggyFeed.', signedIn: false });
+  return session;
+}
+
+// Wrong passwords are slowed down: after 5 failed sign-ins for a username from one address, further tries are
+// refused for a minute.
+const failedSignIns = new Map();
+function signInBlocked(key) {
+  const entry = failedSignIns.get(key);
+  return entry && entry.count >= 5 && Date.now() - entry.last < 60000;
+}
+function noteFailedSignIn(key) {
+  const entry = failedSignIns.get(key);
+  const fresh = !entry || Date.now() - entry.last > 15 * 60000;
+  failedSignIns.set(key, { count: fresh ? 1 : entry.count + 1, last: Date.now() });
+  if (failedSignIns.size > 1000) failedSignIns.delete(failedSignIns.keys().next().value);
 }
 
 function sendRouteError(request, response, error, message) {
@@ -209,14 +234,129 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  // Who is signed in. Without a session it says whether DoggyFeed still needs its first user (setupNeeded).
+  if (pathname === '/api/session' && request.method === 'GET') {
+    try {
+      const session = await housesModule.readSession(sessionToken(request));
+      if (session) {
+        sendJson(response, 200, { signedIn: true, ...session });
+      } else {
+        const setupNeeded = await housesModule.userCount() === 0;
+        sendJson(response, 200, { signedIn: false, setupNeeded, setupHouseName: setupNeeded ? await housesModule.setupDogHouseName() : '' });
+      }
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to check the sign-in');
+    }
+    return;
+  }
+
+  // Sign in, set up the first user, or create a new dog house with its first user. Each starts a session.
+  if (['/api/session', '/api/setup', '/api/dog-houses'].includes(pathname) && request.method === 'POST') {
+    try {
+      const body = await readRequestJson(request, 16 * 1024);
+      let userId;
+      if (pathname === '/api/session') {
+        const key = `${request.socket.remoteAddress}|${housesModule.normalUsername(body?.username)}`;
+        if (signInBlocked(key)) {
+          sendJson(response, 429, { error: 'Too many wrong passwords. Wait a minute and try again.' });
+          return;
+        }
+        userId = await housesModule.checkSignIn(body?.username, body?.password);
+        if (!userId) {
+          noteFailedSignIn(key);
+          sendJson(response, 401, { error: 'The username or password is wrong.' });
+          return;
+        }
+        failedSignIns.delete(key);
+      } else if (pathname === '/api/setup') {
+        userId = await housesModule.setUpFirstUser(body || {});
+      } else {
+        userId = await housesModule.createDogHouseWithUser(body || {});
+      }
+      const token = await housesModule.startSession(userId);
+      response.setHeader('Set-Cookie', sessionCookie(request, token, housesModule.SESSION_DAYS * 86400));
+      sendJson(response, 200, { signedIn: true, ...await housesModule.readSession(token) });
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to sign in');
+    }
+    return;
+  }
+
+  if (pathname === '/api/session/sign-out' && request.method === 'POST') {
+    try {
+      await housesModule.endSession(sessionToken(request));
+      response.setHeader('Set-Cookie', sessionCookie(request, '', 0));
+      sendJson(response, 200, { signedIn: false });
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to sign out');
+    }
+    return;
+  }
+
+  // The signed-in user's dog house profile and its users. Changes use POST, as some proxies block PUT and DELETE.
+  if (pathname === '/api/dog-house' || pathname.startsWith('/api/dog-house/')) {
+    const session = await requireSession(request, response).catch(error => {
+      sendRouteError(request, response, error, 'Unable to check the sign-in');
+      return null;
+    });
+    if (!session) return;
+    const houseId = session.house.id;
+    const userMatch = /^\/api\/dog-house\/users\/([^/]+)\/(password|delete)$/.exec(pathname);
+    try {
+      if (pathname === '/api/dog-house' && request.method === 'GET') {
+        sendJson(response, 200, await housesModule.readDogHouse(houseId));
+      } else if (pathname === '/api/dog-house' && request.method === 'POST') {
+        await housesModule.updateDogHouse(houseId, await readRequestJson(request, 16 * 1024) || {});
+        sendJson(response, 200, await housesModule.readDogHouse(houseId));
+      } else if (pathname === '/api/dog-house/users' && request.method === 'POST') {
+        const body = await readRequestJson(request, 16 * 1024);
+        await housesModule.addUser(houseId, body?.username, body?.password);
+        sendJson(response, 200, await housesModule.readDogHouse(houseId));
+      } else if (userMatch && request.method === 'POST') {
+        const userId = decodeURIComponent(userMatch[1]);
+        if (userMatch[2] === 'password') {
+          const body = await readRequestJson(request, 16 * 1024);
+          await housesModule.setPassword(houseId, userId, body?.password, userId === session.user.id ? sessionToken(request) : '');
+        } else {
+          await housesModule.removeUser(houseId, userId, session.user.id);
+        }
+        sendJson(response, 200, await housesModule.readDogHouse(houseId));
+      } else {
+        sendJson(response, 404, { error: 'Not found.' });
+      }
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to change the dog house');
+    }
+    return;
+  }
+
+  // Everything below reads or changes a dog house's data, so it needs a signed-in user. It only ever reaches the
+  // data of that user's dog house.
+  const needsSession = pathname === '/api/state' || pathname === '/api/state/revision' ||
+    pathname.startsWith('/api/pictures/') || pathname === '/api/served-meals' || pathname.startsWith('/api/served-meals/');
+  const isConnectionTest = pathname === '/api/state' && request.method === 'POST' &&
+    new URL(request.url, 'http://localhost').searchParams.get('connectionTest') === '1';
+  let session = null;
+  if (needsSession && !isConnectionTest) {
+    try {
+      session = await requireSession(request, response);
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to check the sign-in');
+      return;
+    }
+    if (!session) return;
+  }
+  const dogHouseId = session?.house.id;
+
   if (pathname === '/api/state' && request.method === 'GET') {
     // Loads taking over 5 seconds are logged, split into the MariaDB read and sending the answer, to tell a slow
     // database from a slow connection to the browser.
     const started = Date.now();
     try {
-      const state = await readState();
+      // A dog house without saved data answers { empty: true }; the page then starts it with sample data.
+      const state = await readState(dogHouseId);
       const readMs = Date.now() - started;
-      const bytes = sendJson(response, 200, state);
+      const bytes = sendJson(response, 200, { ...(state || { empty: true, revision: 0 }), session });
       response.once('close', () => {
         const totalMs = Date.now() - started;
         if (totalMs <= 5000) return;
@@ -235,7 +375,7 @@ const server = http.createServer(async (request, response) => {
   const pictureMatch = /^\/api\/pictures\/(dog|food)\/([^/]+)$/.exec(pathname);
   if (pictureMatch && request.method === 'GET') {
     try {
-      const picture = await readPicture(pictureMatch[1], decodeURIComponent(pictureMatch[2]));
+      const picture = await readPicture(dogHouseId, pictureMatch[1], decodeURIComponent(pictureMatch[2]));
       if (!picture) {
         sendJson(response, 404, { error: 'Picture not found.' });
         return;
@@ -255,7 +395,7 @@ const server = http.createServer(async (request, response) => {
 
   if (pathname === '/api/state/revision' && request.method === 'GET') {
     try {
-      sendJson(response, 200, { revision: await readRevision(), startedAt: serverInfo.startedAt });
+      sendJson(response, 200, { revision: await readRevision(dogHouseId), startedAt: serverInfo.startedAt });
     } catch (error) {
       sendRouteError(request, response, error, 'Unable to read the save number');
     }
@@ -264,9 +404,7 @@ const server = http.createServer(async (request, response) => {
 
   // Connection test: the page sends requests of different sizes, content and addresses. They are only read
   // and answered, never saved, to find what a proxy or firewall between the browser and DoggyFeed holds back.
-  const isStateTest = pathname === '/api/state' && request.method === 'POST' &&
-    new URL(request.url, 'http://localhost').searchParams.get('connectionTest') === '1';
-  if ((pathname === '/api/connection-test' && request.method === 'POST') || isStateTest) {
+  if ((pathname === '/api/connection-test' && request.method === 'POST') || isConnectionTest) {
     const started = Date.now();
     try {
       await readRequestJson(request);
@@ -298,11 +436,13 @@ const server = http.createServer(async (request, response) => {
         return;
       }
       stage = 'writing to the database';
-      const result = await writeState(state, Number.isInteger(state.baseRevision) ? state.baseRevision : null);
-      console.log(`Save #${result.revision} written after ${Date.now() - started} ms`);
+      const result = await writeState(dogHouseId, state, Number.isInteger(state.baseRevision) ? state.baseRevision : null);
+      console.log(`Save #${result.revision} of ${session.house.name} written after ${Date.now() - started} ms`);
       stage = 'recording the save';
       await recordSave({
         ...result,
+        dogHouse: session.house.name,
+        user: session.user.username,
         bodyBytes: request.bodyBytes ?? null,
         host: request.headers.host || null,
         forwardedFor: request.headers['x-forwarded-for'] || null,
@@ -318,109 +458,6 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  const dogId = routeId(pathname, '/api/dogs/');
-  const foodId = routeId(pathname, '/api/foods/');
-  const mealsDogId = routeId(pathname, '/api/meals/');
-  const planId = routeId(pathname, '/api/plans/');
-
-  // Dogs module routes
-  if (pathname === '/api/dogs' && request.method === 'GET') {
-    try {
-      const dogs = await dogsModule.getDogs();
-      sendJson(response, 200, dogs);
-    } catch (error) {
-      sendRouteError(request, response, error, 'Unable to read dogs');
-    }
-    return;
-  }
-
-  if (pathname === '/api/dogs' && request.method === 'PUT') {
-    try {
-      const dog = await readRequestJson(request);
-      if (!dog || typeof dog.id !== 'string' || !dog.id || typeof dog.name !== 'string' || !dog.name) {
-        sendJson(response, 400, { error: 'A dog needs an id and a name.' });
-        return;
-      }
-      await dogsModule.saveDog(dog);
-      sendJson(response, 200, { saved: true });
-    } catch (error) {
-      sendRouteError(request, response, error, 'Unable to save dog');
-    }
-    return;
-  }
-
-  if (dogId && request.method === 'DELETE') {
-    try {
-      await dogsModule.deleteDog(dogId);
-      sendJson(response, 200, { deleted: true });
-    } catch (error) {
-      sendRouteError(request, response, error, 'Unable to delete dog');
-    }
-    return;
-  }
-
-  // Foods module routes
-  if (pathname === '/api/foods' && request.method === 'GET') {
-    try {
-      const foods = await foodsModule.getFoods();
-      sendJson(response, 200, foods);
-    } catch (error) {
-      sendRouteError(request, response, error, 'Unable to read foods');
-    }
-    return;
-  }
-
-  if (pathname === '/api/foods' && request.method === 'PUT') {
-    try {
-      const food = await readRequestJson(request);
-      if (!food || typeof food.id !== 'string' || !food.id || typeof food.name !== 'string' || !food.name) {
-        sendJson(response, 400, { error: 'A food needs an id and a name.' });
-        return;
-      }
-      await foodsModule.saveFood(food);
-      sendJson(response, 200, { saved: true });
-    } catch (error) {
-      sendRouteError(request, response, error, 'Unable to save food');
-    }
-    return;
-  }
-
-  if (foodId && request.method === 'DELETE') {
-    try {
-      await foodsModule.deleteFood(foodId);
-      sendJson(response, 200, { deleted: true });
-    } catch (error) {
-      sendRouteError(request, response, error, 'Unable to delete food');
-    }
-    return;
-  }
-
-  // Meals module routes
-  if (mealsDogId && request.method === 'GET') {
-    try {
-      const meals = await mealsModule.getMealsForDog(mealsDogId);
-      sendJson(response, 200, meals);
-    } catch (error) {
-      sendRouteError(request, response, error, 'Unable to read meals');
-    }
-    return;
-  }
-
-  if (mealsDogId && request.method === 'PUT') {
-    try {
-      const meals = await readRequestJson(request);
-      if (!Array.isArray(meals)) {
-        sendJson(response, 400, { error: 'Meals must be a list of foods and amounts.' });
-        return;
-      }
-      await mealsModule.saveMealsForDog(mealsDogId, meals);
-      sendJson(response, 200, { saved: true });
-    } catch (error) {
-      sendRouteError(request, response, error, 'Unable to save meals');
-    }
-    return;
-  }
-
   if (pathname === '/api/served-meals' && request.method === 'GET') {
     try {
       const query = new URL(request.url, 'http://localhost').searchParams;
@@ -430,7 +467,7 @@ const server = http.createServer(async (request, response) => {
         sendJson(response, 400, { error: 'Served bowls need a dog and a valid date range.' });
         return;
       }
-      sendJson(response, 200, { meals: await mealsModule.getServedMeals(query.get('dogId'), from, to) });
+      sendJson(response, 200, { meals: await mealsModule.getServedMeals(dogHouseId, query.get('dogId'), from, to) });
     } catch (error) {
       sendRouteError(request, response, error, 'Unable to read served bowls');
     }
@@ -444,7 +481,7 @@ const server = http.createServer(async (request, response) => {
         sendJson(response, 400, { error: 'A served bowl needs a dog and its foods.' });
         return;
       }
-      const result = await mealsModule.recordServedMeal(meal);
+      const result = await mealsModule.recordServedMeal(dogHouseId, meal);
       sendJson(response, 201, { saved: true, ...result });
     } catch (error) {
       sendRouteError(request, response, error, 'Unable to record the served bowl');
@@ -466,48 +503,13 @@ const server = http.createServer(async (request, response) => {
           sendJson(response, 400, { error: 'Choose a valid date and time.' });
           return;
         }
-        found = await mealsModule.updateServedMealTime(id, servedAt);
+        found = await mealsModule.updateServedMealTime(dogHouseId, id, servedAt);
       } else {
-        found = await mealsModule.deleteServedMeal(id);
+        found = await mealsModule.deleteServedMeal(dogHouseId, id);
       }
       sendJson(response, found ? 200 : 404, found ? { saved: true } : { error: 'This served bowl was not found.' });
     } catch (error) {
       sendRouteError(request, response, error, servedMatch[2] === 'date' ? 'Unable to change the served bowl' : 'Unable to delete the served bowl');
-    }
-    return;
-  }
-
-  if (pathname === '/api/plans' && request.method === 'GET') {
-    try {
-      const plans = await mealsModule.getSavedPlans();
-      sendJson(response, 200, plans);
-    } catch (error) {
-      sendRouteError(request, response, error, 'Unable to read plans');
-    }
-    return;
-  }
-
-  if (pathname === '/api/plans' && request.method === 'PUT') {
-    try {
-      const plan = await readRequestJson(request);
-      if (!plan || typeof plan.id !== 'string' || !plan.id || typeof plan.name !== 'string' || !plan.name) {
-        sendJson(response, 400, { error: 'A plan needs an id and a name.' });
-        return;
-      }
-      await mealsModule.savePlan(plan);
-      sendJson(response, 200, { saved: true });
-    } catch (error) {
-      sendRouteError(request, response, error, 'Unable to save plan');
-    }
-    return;
-  }
-
-  if (planId && request.method === 'DELETE') {
-    try {
-      await mealsModule.deletePlan(planId);
-      sendJson(response, 200, { deleted: true });
-    } catch (error) {
-      sendRouteError(request, response, error, 'Unable to delete plan');
     }
     return;
   }
