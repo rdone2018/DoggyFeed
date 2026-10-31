@@ -64,7 +64,8 @@ const schema = [
     image LONGTEXT NULL,
     manufacturer_url VARCHAR(500) NULL,
     shop_url VARCHAR(500) NULL,
-    \`portion\` DECIMAL(8,1) NULL
+    \`portion\` DECIMAL(8,1) NULL,
+    \`stock\` DECIMAL(10,2) NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS meal_items (
     dog_id VARCHAR(80) NOT NULL,
@@ -166,6 +167,7 @@ const laterColumns = [
   ['foods', 'manufacturer_url', 'VARCHAR(500) NULL'],
   ['foods', 'shop_url', 'VARCHAR(500) NULL'],
   ['foods', 'portion', 'DECIMAL(8,1) NULL'],
+  ['foods', 'stock', 'DECIMAL(10,2) NULL'],
   ['saved_plans', 'dog_id', 'VARCHAR(80) NULL'],
   ['served_meals', 'plan_name', 'VARCHAR(120) NULL'],
   ['weight_history', 'daily_energy', 'DECIMAL(10,2) NULL'],
@@ -208,8 +210,16 @@ export function toFood(food) {
     id: food.id, name: food.name, category: food.category, kcal: Number(food.kcal),
     protein: Number(food.protein), fat: Number(food.fat), fiber: Number(food.fiber), image: food.image || '',
     manufacturerUrl: food.manufacturer_url || '', shopUrl: food.shop_url || '',
-    portion: food.portion === null || food.portion === undefined ? '' : Number(food.portion)
+    portion: food.portion === null || food.portion === undefined ? '' : Number(food.portion),
+    stock: food.stock === null || food.stock === undefined ? '' : Number(food.stock)
   };
+}
+
+// How many pieces of a food are in stock, or null when its stock is not tracked.
+export function stockCount(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const count = Number(value);
+  return Number.isFinite(count) ? Math.min(Math.max(Math.round(count * 100) / 100, 0), 99999999) : null;
 }
 
 // A food's usual portion in grams, or null when it has none.
@@ -282,7 +292,7 @@ function cleanState(state) {
       kcal: amount(food.kcal, 0, 99999999), protein: amount(food.protein, 0, 99999999),
       fat: amount(food.fat, 0, 99999999), fiber: amount(food.fiber, 0, 99999999), image: text(food.image, Infinity),
       keepImage: food.keepImage === true || isPictureLink(food.image, 'food', id), manufacturerUrl: webUrl(food.manufacturerUrl), shopUrl: webUrl(food.shopUrl),
-      portion: portionGrams(food.portion)
+      portion: portionGrams(food.portion), stock: stockCount(food.stock)
     })),
     meals,
     savedPlans: uniqueById(state.savedPlans).map(([id, plan]) => ({
@@ -373,10 +383,10 @@ export async function replaceState(rawState, baseRevision = null) {
 
     for (const food of state.foods) {
       await connection.query(
-        `INSERT INTO foods (id, name, category, kcal, protein, fat, fiber, image, manufacturer_url, shop_url, \`portion\`)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO foods (id, name, category, kcal, protein, fat, fiber, image, manufacturer_url, shop_url, \`portion\`, \`stock\`)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [food.id, food.name, food.category, food.kcal, food.protein, food.fat, food.fiber,
-          food.keepImage ? storedImages.get(food.id) ?? null : food.image, food.manufacturerUrl, food.shopUrl, food.portion]
+          food.keepImage ? storedImages.get(food.id) ?? null : food.image, food.manufacturerUrl, food.shopUrl, food.portion, food.stock]
       );
     }
 
