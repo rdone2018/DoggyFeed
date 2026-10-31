@@ -452,6 +452,31 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  // Changing the date of a served bowl, or deleting it. Both use POST, as some proxies in front of DoggyFeed
+  // block PUT and DELETE requests.
+  const servedMatch = /^\/api\/served-meals\/([^/]+)\/(date|delete)$/.exec(pathname);
+  if (servedMatch && request.method === 'POST') {
+    const id = decodeURIComponent(servedMatch[1]);
+    try {
+      let found;
+      if (servedMatch[2] === 'date') {
+        const body = await readRequestJson(request, 4 * 1024);
+        const servedAt = new Date(body?.servedAt);
+        if (Number.isNaN(servedAt.getTime())) {
+          sendJson(response, 400, { error: 'Choose a valid date and time.' });
+          return;
+        }
+        found = await mealsModule.updateServedMealTime(id, servedAt);
+      } else {
+        found = await mealsModule.deleteServedMeal(id);
+      }
+      sendJson(response, found ? 200 : 404, found ? { saved: true } : { error: 'This served bowl was not found.' });
+    } catch (error) {
+      sendRouteError(request, response, error, servedMatch[2] === 'date' ? 'Unable to change the served bowl' : 'Unable to delete the served bowl');
+    }
+    return;
+  }
+
   if (pathname === '/api/plans' && request.method === 'GET') {
     try {
       const plans = await mealsModule.getSavedPlans();

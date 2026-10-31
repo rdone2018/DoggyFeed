@@ -168,6 +168,34 @@ export async function recordServedMeal(meal) {
   }
 }
 
+// Moves a served bowl to another date and time. Returns false when there is no such record.
+export async function updateServedMealTime(id, servedAt) {
+  const connection = await getConnection();
+  try {
+    const result = await connection.query('UPDATE served_meals SET served_at = ? WHERE id = ?', [servedAt, id]);
+    return result.affectedRows > 0;
+  } finally {
+    connection.release();
+  }
+}
+
+// Deletes a served bowl and its foods from the food served history. Returns false when there is no such record.
+export async function deleteServedMeal(id) {
+  const connection = await getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query('DELETE FROM served_meal_items WHERE served_meal_id = ?', [id]);
+    const result = await connection.query('DELETE FROM served_meals WHERE id = ?', [id]);
+    await connection.commit();
+    return result.affectedRows > 0;
+  } catch (error) {
+    await connection.rollback().catch(() => {});
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 // Returns a dog's served bowls with their foods, from (inclusive) to (exclusive), oldest first.
 export async function getServedMeals(dogId, from, to) {
   const connection = await getConnection();
