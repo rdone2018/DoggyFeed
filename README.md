@@ -44,11 +44,11 @@ All data belongs to a dog house (table `dog_house`: name, contact, email, countr
 
 ## Languages
 
-The page texts are stored in two tables: `languages` (code, name, native name, order, enabled) and `translations` (one row per language and English text: `text_key` is the English text, `translation` the text shown). At every server start DoggyFeed writes the English records first and then the Czech ones from `modules/texts-cs.js`. A translation changed directly in the database keeps its text when its `edited` column is set to 1; other rows are updated from the code.
+The page texts are stored in two tables: `languages` (code, name, native name, order, enabled) and `translations` (one row per language and English text: `text_key` is the English text, `translation` the text shown). At every server start DoggyFeed writes the English records first and then the Czech and Polish ones from `modules/texts-cs.js` and `modules/texts-pl.js`. A translation changed directly in the database keeps its text when its `edited` column is set to 1; other rows are updated from the code.
 
-Choose the language at the top right of the page, or on the sign-in screen. The choice and the last texts are kept in the browser, so the page opens in that language at once; without a choice, a browser set to Czech starts in Czech. Dates and times follow the chosen language.
+Choose the language at the top right of the page, or on the sign-in screen. The choice and the last texts are kept in the browser, so the page opens in that language at once; without a choice, a browser set to Czech or Polish starts in that language. Dates and times follow the chosen language.
 
-The page is drawn in English and translated as it appears, so a text without a translation stays in English. A key can hold numbered parts for names and numbers, such as `{0}'s bowl` → `Miska – {0}`, and texts joined with ` · ` are translated part by part. Names and other data you enter are not translated. In the browser console, `doggyFeedMissingTexts` lists the texts of the current language that have no translation yet. To add a language, copy `modules/texts-cs.js`, translate it, and add it to `LANGUAGES` in `modules/languages.js`.
+The page is drawn in English and translated as it appears, so a text without a translation stays in English. A key can hold numbered parts for names and numbers, such as `{0}'s bowl` → `Miska – {0}`, and texts joined with ` · ` are translated part by part. Names and other data you enter are not translated. In the browser console, `doggyFeedMissingTexts` lists the texts of the current language that have no translation yet. To add a language, copy `modules/texts-cs.js`, translate it, add it to `LANGUAGES` in `modules/languages.js`, and add its locale to `UI_LOCALES` in `index.html`.
 
 ## Features
 

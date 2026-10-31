@@ -290,6 +290,10 @@ export const CZECH_TEXTS = {
   '{0} added to your food library': '{0} přidáno do vaší knihovny krmiv',
   '{0} foods added to your food library': 'Do vaší knihovny krmiv přidáno krmiv: {0}',
   '{0} - out of stock': '{0} – došlo',
+  'Web ↗': 'Web ↗',
+  'eShop ↗': 'E-shop ↗',
+  '{0} manufacturer website (opens in a new tab)': '{0} – web výrobce (otevře se v nové kartě)',
+  '{0} eShop page (opens in a new tab)': '{0} – stránka v e-shopu (otevře se v nové kartě)',
 
   // My dogs
   'The whole pack': 'Celá smečka',

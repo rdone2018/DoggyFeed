@@ -117,9 +117,9 @@
       // English text, such as "{0}'s bowl"; texts joined with " · " are translated part by part. Each node keeps its English text, so changing the language translates
       // the page again. The last texts are kept in the browser, so the page starts in its language at once.
       const LANGUAGE_KEY='doggyfeed-language',TEXTS_KEY='doggyfeed-texts:',TRANSLATED_ATTRIBUTES=['title','placeholder','aria-label','alt'];
-      let language='en',wantedLanguage='en',texts=new Map(),textPatterns=[],appStarted=false,languages=[{code:'en',nativeName:'English'},{code:'cs',nativeName:'Čeština'}];
+      let language='en',wantedLanguage='en',texts=new Map(),textPatterns=[],appStarted=false,languages=[{code:'en',nativeName:'English'},{code:'cs',nativeName:'Čeština'},{code:'pl',nativeName:'Polski'}];
       const englishTexts=new WeakMap(),englishAttributes=new WeakMap(),missingTexts=new Set();window.doggyFeedMissingTexts=missingTexts;
-      const uiLocale=()=>language==='cs'?'cs-CZ':undefined;
+      const UI_LOCALES={cs:'cs-CZ',pl:'pl-PL'},uiLocale=()=>UI_LOCALES[language];
       // The country of the browser's language settings as a two-letter code, such as CZ for cs-CZ or for plain cs.
       function browserCountry(){for(const tag of [...(navigator.languages||[]),navigator.language].filter(Boolean)){try{const region=new Intl.Locale(tag).maximize().region;if(/^[A-Z]{2}$/.test(region||''))return region}catch{}}return ''}
       // Countries a dog house can be in, from the countries table (GET /api/countries). Dog house forms offer only
@@ -145,7 +145,7 @@
       // Applies a language: the stored texts at once, then the database's texts when they differ. English needs none.
       async function setLanguage(code,{fetchTexts=true}={}){wantedLanguage=code;try{localStorage.setItem(LANGUAGE_KEY,code)}catch{}const apply=map=>{useTexts(code,map);translateTree(document.documentElement);showLanguagePickers();refreshCountrySelects();if(appStarted)render()};const cached=code==='en'?{}:cachedTexts(code);if(cached||code==='en')apply(cached);if(code==='en'||!fetchTexts)return;try{const response=await fetch(`/api/translations/${encodeURIComponent(code)}?t=${Date.now()}`,{cache:'no-store'});if(!response.ok)throw new Error(`HTTP ${response.status}`);const fresh=(await response.json()).texts||{};if(JSON.stringify(fresh)===JSON.stringify(cached))return;try{localStorage.setItem(TEXTS_KEY+code,JSON.stringify(fresh))}catch{}if(wantedLanguage===code)apply(fresh)}catch(error){console.warn(`The ${code} texts could not be loaded:`,error)}}
       document.addEventListener('change',e=>{if(e.target instanceof Element&&e.target.matches('[data-language-select]'))setLanguage(e.target.value)});
-      {let saved='';try{saved=localStorage.getItem(LANGUAGE_KEY)||''}catch{}const code=saved||(/^cs\b/i.test(navigator.language||'')?'cs':'en');if(code!=='en'){useTexts(code,cachedTexts(code)||{});translateTree(document.documentElement)}showLanguagePickers();setLanguage(code);loadCountries().then(refreshCountrySelects).catch(()=>{});fetch(`/api/languages?t=${Date.now()}`,{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(j?.languages?.length){languages=j.languages;showLanguagePickers()}}).catch(()=>{})}
+      {let saved='';try{saved=localStorage.getItem(LANGUAGE_KEY)||''}catch{}const browserLanguage=(navigator.language||'').toLowerCase().split('-')[0],code=saved||(['cs','pl'].includes(browserLanguage)?browserLanguage:'en');if(code!=='en'){useTexts(code,cachedTexts(code)||{});translateTree(document.documentElement)}showLanguagePickers();setLanguage(code);loadCountries().then(refreshCountrySelects).catch(()=>{});fetch(`/api/languages?t=${Date.now()}`,{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(j?.languages?.length){languages=j.languages;showLanguagePickers()}}).catch(()=>{})}
       // Pictures the database already holds are not sent again, which keeps each save small. Large requests
       // are often rejected by a web server in front of DoggyFeed (nginx allows only 1 MB by default).
       let savedImages=new Map();

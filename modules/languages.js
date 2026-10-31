@@ -1,15 +1,19 @@
 import { createHash } from 'node:crypto';
 import { getConnection } from '../database.js';
 import { CZECH_TEXTS } from './texts-cs.js';
+import { POLISH_TEXTS } from './texts-pl.js';
 
 // Languages of the page texts. The translations table holds every visible text of DoggyFeed per language, keyed
 // by its English text; the page translates itself with them (see the translator in index.html). At server start
-// the English records are written first, then the Czech ones from texts-cs.js. A translation changed in the
-// database and marked edited = 1 is kept; the others follow the texts in the code.
+// the English records are written first, then the Czech and Polish ones from texts-cs.js and texts-pl.js. A
+// translation changed in the database and marked edited = 1 is kept; the others follow the texts in the code.
 
+// The English records are every key of the other languages, each standing for itself.
+const ENGLISH_TEXTS = Object.fromEntries([...new Set([...Object.keys(CZECH_TEXTS), ...Object.keys(POLISH_TEXTS)])].map(key => [key, key]));
 export const LANGUAGES = [
-  { code: 'en', name: 'English', nativeName: 'English', texts: Object.fromEntries(Object.keys(CZECH_TEXTS).map(key => [key, key])) },
-  { code: 'cs', name: 'Czech', nativeName: 'Čeština', texts: CZECH_TEXTS }
+  { code: 'en', name: 'English', nativeName: 'English', texts: ENGLISH_TEXTS },
+  { code: 'cs', name: 'Czech', nativeName: 'Čeština', texts: CZECH_TEXTS },
+  { code: 'pl', name: 'Polish', nativeName: 'Polski', texts: POLISH_TEXTS }
 ];
 const ROWS_PER_INSERT = 200;
 
