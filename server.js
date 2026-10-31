@@ -8,6 +8,7 @@ import { closeDatabase, initializeDatabase, readDatabaseDiagnostics, readPicture
 import { readErrors, readSaves, recordError, recordSave } from './errorlog.js';
 import * as housesModule from './modules/houses.js';
 import * as mealsModule from './modules/meals.js';
+import * as signupGuard from './modules/signup.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const maxBodyBytes = 20 * 1024 * 1024;
@@ -119,6 +120,19 @@ async function requireSession(request, response) {
   if (!session) sendJson(response, 401, { error: 'Sign in to DoggyFeed.', signedIn: false });
   return session;
 }
+
+// The browser's network address, for sign-in and sign-up limits. Behind a reverse proxy every request comes from the
+// proxy, so with DOGGYFEED_TRUST_PROXY=1 the first address in X-Forwarded-For is used instead. Only set it when a
+// proxy you control always sets that header, as browsers could otherwise send any address in it.
+function clientAddress(request) {
+  if (process.env.DOGGYFEED_TRUST_PROXY === '1') {
+    const forwarded = String(request.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    if (forwarded) return forwarded;
+  }
+  return request.socket.remoteAddress || 'unknown';
+}
+
+const waitText = seconds => seconds >= 5400 ? `${Math.ceil(seconds / 3600)} hours` : seconds >= 90 ? `${Math.ceil(seconds / 60)} minutes` : `${seconds} seconds`;
 
 // Wrong passwords are slowed down: after 5 failed sign-ins for a username from one address, further tries are
 // refused for a minute.
@@ -250,13 +264,30 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  // A form token for the new dog house form; see modules/signup.js.
+  if (pathname === '/api/dog-houses/form-token' && request.method === 'GET') {
+    sendJson(response, 200, { token: signupGuard.formToken() });
+    return;
+  }
+
   // Sign in, set up the first user, or create a new dog house with its first user. Each starts a session.
   if (['/api/session', '/api/setup', '/api/dog-houses'].includes(pathname) && request.method === 'POST') {
+    const address = clientAddress(request);
+    // New dog houses: hard limits on attempts per address and on dog houses created per day.
+    if (pathname === '/api/dog-houses') {
+      const wait = signupGuard.signupWaitSeconds(address);
+      if (wait) {
+        response.setHeader('Retry-After', String(wait));
+        sendJson(response, 429, { error: `Too many attempts to create a dog house. Try again in ${waitText(wait)}.` });
+        return;
+      }
+      signupGuard.noteSignupAttempt(address);
+    }
     try {
       const body = await readRequestJson(request, 16 * 1024);
       let userId;
       if (pathname === '/api/session') {
-        const key = `${request.socket.remoteAddress}|${housesModule.normalUsername(body?.username)}`;
+        const key = `${address}|${housesModule.normalUsername(body?.username)}`;
         if (signInBlocked(key)) {
           sendJson(response, 429, { error: 'Too many wrong passwords. Wait a minute and try again.' });
           return;
@@ -271,7 +302,25 @@ const server = http.createServer(async (request, response) => {
       } else if (pathname === '/api/setup') {
         userId = await housesModule.setUpFirstUser(body || {});
       } else {
+        // Honeypot filled in: answer as if it worked (after a short pause), so the bot learns nothing, but create
+        // nothing and start no session.
+        if (signupGuard.honeypotFilled(body)) {
+          console.log(`New dog house refused: the hidden honeypot field was filled in (from ${address}).`);
+          await new Promise(resolve => setTimeout(resolve, 400 + Math.random() * 800));
+          sendJson(response, 200, { signedIn: true });
+          return;
+        }
+        const problem = signupGuard.formTokenProblem(body?.formToken);
+        if (problem) {
+          sendJson(response, 400, problem === 'too-fast'
+            ? { error: 'Please take a moment to fill in the form, then send it again.', formRefresh: true }
+            : { error: 'This form has expired, so it was refreshed. Please send it again.', formRefresh: true });
+          return;
+        }
+        signupGuard.useFormToken(body.formToken);
         userId = await housesModule.createDogHouseWithUser(body || {});
+        signupGuard.noteDogHouseCreated(address);
+        console.log(`New dog house ${String(body.houseName || '').slice(0, 120)} created (from ${address}).`);
       }
       const token = await housesModule.startSession(userId);
       response.setHeader('Set-Cookie', sessionCookie(request, token, housesModule.SESSION_DAYS * 86400));

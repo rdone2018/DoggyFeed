@@ -122,15 +122,23 @@ export async function setUpFirstUser({ houseName, contact, email, username, pass
   });
 }
 
-// A new dog house with its first user. Its data starts empty.
+// A new dog house with its first user. Its data starts empty. A taken username gets the same general answer as
+// other details that cannot be used, and costs the same password hashing, so the form cannot be used to find out
+// which usernames exist.
+export const SIGNUP_REFUSED = 'The dog house could not be created with these details. Try a different username.';
 export async function createDogHouseWithUser({ houseName, contact, email, username, password }) {
-  return inTransaction(async connection => {
-    const house = houseFields({ name: houseName, contact, email });
-    const problem = usernameProblem(normalUsername(username)) || passwordProblem(password);
-    if (problem) throw httpError(400, problem);
-    const dogHouseId = await createDogHouse(connection, house);
-    return insertUser(connection, dogHouseId, username, password);
-  });
+  try {
+    return await inTransaction(async connection => {
+      const house = houseFields({ name: houseName, contact, email });
+      const problem = usernameProblem(normalUsername(username)) || passwordProblem(password);
+      if (problem) throw httpError(400, problem);
+      const dogHouseId = await createDogHouse(connection, house);
+      return await insertUser(connection, dogHouseId, username, password);
+    });
+  } catch (error) {
+    if (error.statusCode === 409) throw httpError(400, SIGNUP_REFUSED);
+    throw error;
+  }
 }
 
 // Returns the user's id when the username and password match, otherwise null.
