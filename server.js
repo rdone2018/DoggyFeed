@@ -11,6 +11,7 @@ import * as mealsModule from './modules/meals.js';
 import * as formGuard from './modules/form-guard.js';
 import * as globalFoods from './modules/global-foods.js';
 import * as languagesModule from './modules/languages.js';
+import * as countriesModule from './modules/countries.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const maxBodyBytes = 20 * 1024 * 1024;
@@ -243,6 +244,16 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  // The countries a dog house can be in, also for the New dog house form before signing in.
+  if (pathname === '/api/countries' && request.method === 'GET') {
+    try {
+      sendJson(response, 200, { countries: await countriesModule.listCountries() });
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to read the countries');
+    }
+    return;
+  }
+
   // The languages of the page texts and each language's texts, also before signing in (the sign-in screen).
   if (pathname === '/api/languages' && request.method === 'GET') {
     try {
@@ -429,6 +440,20 @@ const server = http.createServer(async (request, response) => {
     try {
       if (request.method === 'GET' && pathname === '/api/admin') {
         sendJson(response, 200, await housesModule.adminOverview());
+        return;
+      }
+      // Countries: list with how many dog houses are in each, add or change, and delete.
+      if (pathname === '/api/admin/countries' || pathname.startsWith('/api/admin/countries/')) {
+        const action = pathname.slice('/api/admin/countries/'.length);
+        if (request.method === 'POST' && ['save', 'delete'].includes(action)) {
+          const body = await readRequestJson(request, 16 * 1024) || {};
+          if (action === 'save') await countriesModule.saveCountry(body);
+          else await countriesModule.deleteCountry(body.code);
+        } else if (request.method !== 'GET' || pathname !== '/api/admin/countries') {
+          sendJson(response, 404, { error: 'Not found.' });
+          return;
+        }
+        sendJson(response, 200, { countries: await countriesModule.adminCountries() });
         return;
       }
       // Global food library: list, add or change (with a picture), delete selected foods, and import CSV rows.
@@ -730,6 +755,10 @@ async function startServer() {
   try {
     startupFingerprint = await serverCodeFingerprint();
     await initializeDatabase();
+    await countriesModule.seedCountries().catch(async error => {
+      console.error('Unable to fill the countries table:', error.message);
+      await recordError('Unable to fill the countries table', error);
+    });
     await languagesModule.seedTexts().catch(async error => {
       console.error('Unable to write the page texts to the database:', error.message);
       await recordError('Unable to write the page texts', error);

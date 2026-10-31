@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { createDogHouse, dogHouseTables, firstDogHouseId, getConnection } from '../database.js';
+import { checkedCountry } from './countries.js';
 
 // Dog houses, their users and sign-in sessions. Passwords are stored only as scrypt hashes with a random salt.
 // A session is a random token in an HttpOnly cookie; the database keeps only the token's SHA-256 hash.
@@ -75,6 +76,11 @@ function houseFields(fields) {
 
 const countryColumn = house => house.country === undefined ? '' : ', `country` = ?';
 const countryValue = house => house.country === undefined ? [] : [house.country || null];
+// Only a country from the countries table (or none) is kept; see modules/countries.js.
+async function checkHouseCountry(connection, house) {
+  if (house.country !== undefined) house.country = await checkedCountry(connection, house.country);
+  return house;
+}
 
 async function inTransaction(work) {
   const connection = await getConnection();
@@ -119,7 +125,7 @@ export async function setUpFirstUser({ houseName, contact, email, country, usern
     const [row] = await connection.query('SELECT COUNT(*) AS count FROM users FOR UPDATE');
     if (Number(row.count) > 0) throw httpError(409, 'DoggyFeed is already set up. Sign in instead.');
     const dogHouseId = await firstDogHouseId(connection);
-    const house = houseFields({ name: houseName, contact, email, country });
+    const house = await checkHouseCountry(connection, houseFields({ name: houseName, contact, email, country }));
     await connection.query(`UPDATE dog_house SET name = ?, contact = ?, email = ?${countryColumn(house)} WHERE id = ?`,
       [house.name, house.contact || null, house.email || null, ...countryValue(house), dogHouseId]);
     // The first user is the administrator.
@@ -134,7 +140,7 @@ export const SIGNUP_REFUSED = 'The dog house could not be created with these det
 export async function createDogHouseWithUser({ houseName, contact, email, country, username, password }) {
   try {
     return await inTransaction(async connection => {
-      const house = houseFields({ name: houseName, contact, email, country });
+      const house = await checkHouseCountry(connection, houseFields({ name: houseName, contact, email, country }));
       const problem = usernameProblem(normalUsername(username)) || passwordProblem(password);
       if (problem) throw httpError(400, problem);
       const dogHouseId = await createDogHouse(connection, house);
@@ -259,6 +265,7 @@ export async function updateDogHouse(dogHouseId, fields) {
   }
   const connection = await getConnection();
   try {
+    await checkHouseCountry(connection, house);
     await connection.query(
       `UPDATE dog_house SET name = ?, contact = ?, email = ?${countryColumn(house)}${photo === undefined ? '' : ', photo = ?'} WHERE id = ?`,
       [house.name, house.contact || null, house.email || null, ...countryValue(house), ...(photo === undefined ? [] : [photo]), dogHouseId]
@@ -345,13 +352,14 @@ export async function adminOverview() {
 }
 
 export async function adminCreateDogHouse(fields) {
-  return inTransaction(connection => createDogHouse(connection, houseFields(fields)));
+  return inTransaction(async connection => createDogHouse(connection, await checkHouseCountry(connection, houseFields(fields))));
 }
 
 export async function adminUpdateDogHouse(dogHouseId, fields) {
   const house = houseFields(fields);
   return inTransaction(async connection => {
     await requireDogHouse(connection, dogHouseId);
+    await checkHouseCountry(connection, house);
     await connection.query(`UPDATE dog_house SET name = ?, contact = ?, email = ?${countryColumn(house)} WHERE id = ?`,
       [house.name, house.contact || null, house.email || null, ...countryValue(house), dogHouseId]);
   });

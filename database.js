@@ -137,6 +137,11 @@ const schema = [
     PRIMARY KEY (language_code, key_hash),
     CONSTRAINT translations_language FOREIGN KEY (language_code) REFERENCES languages (code) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // Countries a dog house can be in (ISO 3166-1 alpha-2 codes); modules/countries.js fills it while it is empty.
+  `CREATE TABLE IF NOT EXISTS countries (
+    code CHAR(2) NOT NULL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS meal_items (
     dog_house_id VARCHAR(80) NULL,
     dog_id VARCHAR(80) NOT NULL,
