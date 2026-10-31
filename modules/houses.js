@@ -210,11 +210,12 @@ export async function endSession(token) {
 export async function readDogHouse(dogHouseId) {
   const connection = await getConnection();
   try {
-    const [house] = await connection.query('SELECT id, name, contact, email, created_at FROM dog_house WHERE id = ?', [dogHouseId]);
+    const [house] = await connection.query('SELECT id, name, contact, email, MD5(photo) AS photo_version, created_at FROM dog_house WHERE id = ?', [dogHouseId]);
     if (!house) throw httpError(404, 'This dog house was not found.');
     const users = await connection.query('SELECT id, username, is_admin, created_at FROM users WHERE dog_house_id = ? ORDER BY username', [dogHouseId]);
     return {
       id: house.id, name: house.name, contact: house.contact || '', email: house.email || '',
+      photo: housePhotoLink(house.id, house.photo_version),
       createdAt: new Date(house.created_at).toISOString(),
       users: users.map(user => ({ id: user.id, username: user.username, isAdmin: Boolean(user.is_admin), createdAt: new Date(user.created_at).toISOString() }))
     };
@@ -223,12 +224,40 @@ export async function readDogHouse(dogHouseId) {
   }
 }
 
-export async function updateDogHouse(dogHouseId, fields) {
-  const house = houseFields(fields);
+// The dog house photo is served like dog and food pictures, from a link carrying the photo's version (an MD5 the
+// database works out), so browsers can cache it and fetch a changed photo under its new link.
+const housePhotoLink = (dogHouseId, version) => version ? `/api/pictures/house/${encodeURIComponent(dogHouseId)}?v=${String(version).slice(0, 12)}` : '';
+
+export async function readHousePhotoLink(dogHouseId) {
   const connection = await getConnection();
   try {
-    await connection.query('UPDATE dog_house SET name = ?, contact = ?, email = ? WHERE id = ?',
-      [house.name, house.contact || null, house.email || null, dogHouseId]);
+    const [row] = await connection.query('SELECT MD5(photo) AS photo_version FROM dog_house WHERE id = ?', [dogHouseId]);
+    return housePhotoLink(dogHouseId, row?.photo_version);
+  } finally {
+    connection.release();
+  }
+}
+
+export const MAX_HOUSE_PHOTO_BYTES = 6 * 1024 * 1024;
+
+// Saves the profile. photo is a new picture as a JPEG, PNG or WebP data URL; removePhoto: true deletes the photo;
+// without either, the stored photo stays.
+export async function updateDogHouse(dogHouseId, fields) {
+  const house = houseFields(fields);
+  let photo;
+  if (fields.removePhoto === true) {
+    photo = null;
+  } else if (typeof fields.photo === 'string' && fields.photo) {
+    if (!/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(fields.photo)) throw httpError(400, 'Choose a JPG, PNG or WebP picture.');
+    if (fields.photo.length > MAX_HOUSE_PHOTO_BYTES) throw httpError(413, 'The photo is too large. Choose a smaller picture.');
+    photo = fields.photo;
+  }
+  const connection = await getConnection();
+  try {
+    await connection.query(
+      `UPDATE dog_house SET name = ?, contact = ?, email = ?${photo === undefined ? '' : ', photo = ?'} WHERE id = ?`,
+      [house.name, house.contact || null, house.email || null, ...(photo === undefined ? [] : [photo]), dogHouseId]
+    );
   } finally {
     connection.release();
   }

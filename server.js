@@ -365,7 +365,8 @@ const server = http.createServer(async (request, response) => {
       if (pathname === '/api/dog-house' && request.method === 'GET') {
         sendJson(response, 200, await housesModule.readDogHouse(houseId));
       } else if (pathname === '/api/dog-house' && request.method === 'POST') {
-        await housesModule.updateDogHouse(houseId, await readRequestJson(request, 16 * 1024) || {});
+        // Room for the dog house photo, which the page shrinks before sending.
+        await housesModule.updateDogHouse(houseId, await readRequestJson(request, housesModule.MAX_HOUSE_PHOTO_BYTES + 64 * 1024) || {});
         sendJson(response, 200, await housesModule.readDogHouse(houseId));
       } else if (pathname === '/api/dog-house/users' && request.method === 'POST') {
         const body = await readRequestJson(request, 16 * 1024);
@@ -465,7 +466,8 @@ const server = http.createServer(async (request, response) => {
       // A dog house without saved data answers { empty: true }; the page then starts it with sample data.
       const state = await readState(dogHouseId);
       const readMs = Date.now() - started;
-      const bytes = sendJson(response, 200, { ...(state || { empty: true, revision: 0 }), session });
+      const house = { ...session.house, photo: await housesModule.readHousePhotoLink(dogHouseId) };
+      const bytes = sendJson(response, 200, { ...(state || { empty: true, revision: 0 }), session: { ...session, house } });
       response.once('close', () => {
         const totalMs = Date.now() - started;
         if (totalMs <= 5000) return;
@@ -481,7 +483,7 @@ const server = http.createServer(async (request, response) => {
 
   // Dog photos and food pictures, linked from the app data. Each link carries the picture's version, so the
   // browser may keep it for good and fetches a changed picture under its new link.
-  const pictureMatch = /^\/api\/pictures\/(dog|food)\/([^/]+)$/.exec(pathname);
+  const pictureMatch = /^\/api\/pictures\/(dog|food|house)\/([^/]+)$/.exec(pathname);
   if (pictureMatch && request.method === 'GET') {
     try {
       const picture = await readPicture(dogHouseId, pictureMatch[1], decodeURIComponent(pictureMatch[2]));

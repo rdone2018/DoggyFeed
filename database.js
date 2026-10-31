@@ -45,6 +45,7 @@ const schema = [
     name VARCHAR(120) NOT NULL,
     contact VARCHAR(200) NULL,
     email VARCHAR(200) NULL,
+    photo LONGTEXT NULL,
     created_at DATETIME(3) NOT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   // Usernames are stored in lower case and are unique across all dog houses, so signing in needs no dog house.
@@ -214,7 +215,8 @@ const laterColumns = [
   ['meal_items', 'auto_fill', 'TINYINT(1) NOT NULL DEFAULT 0'],
   ['saved_plan_items', 'auto_fill', 'TINYINT(1) NOT NULL DEFAULT 0'],
   ...dogHouseTables().map(table => [table, 'dog_house_id', 'VARCHAR(80) NULL']),
-  ['users', 'is_admin', 'TINYINT(1) NOT NULL DEFAULT 0']
+  ['users', 'is_admin', 'TINYINT(1) NOT NULL DEFAULT 0'],
+  ['dog_house', 'photo', 'LONGTEXT NULL']
 ];
 
 // Tables whose rows belong to a dog house.
@@ -672,7 +674,7 @@ export async function readState(dogHouseId) {
 // several MB; a large answer is more likely to stall on an unsteady connection such as a phone's first one. The
 // version is a hash of the picture, so a changed picture gets a new link and browsers can cache each link for good.
 // A save that leaves a picture unchanged sends it back with keepPhoto/keepImage, so the stored picture stays.
-function pictureUrl(kind, id, value) {
+export function pictureUrl(kind, id, value) {
   if (!value) return '';
   if (!value.startsWith('data:')) return value;
   const version = createHash('sha1').update(value).digest('hex').slice(0, 12);
@@ -684,12 +686,14 @@ function isPictureLink(value, kind, id) {
   return typeof value === 'string' && value.startsWith(`/api/pictures/${kind}/${encodeURIComponent(id)}?`);
 }
 
-// Returns { type, data } for a stored dog photo or food picture, or null when there is none.
+// Returns { type, data } for a stored dog photo, food picture or dog house photo, or null when there is none. A dog
+// house photo is only given to users of that dog house.
 export async function readPicture(dogHouseId, kind, id) {
-  const [table, column] = kind === 'dog' ? ['dogs', 'photo'] : ['foods', 'image'];
   const connection = await getConnection();
   try {
-    const [row] = await connection.query(`SELECT ${column} AS picture FROM ${table} WHERE id = ? AND dog_house_id = ?`, [id, dogHouseId]);
+    const [row] = kind === 'house'
+      ? await connection.query('SELECT photo AS picture FROM dog_house WHERE id = ? AND id = ?', [id, dogHouseId])
+      : await connection.query(`SELECT ${kind === 'dog' ? 'photo' : 'image'} AS picture FROM ${kind === 'dog' ? 'dogs' : 'foods'} WHERE id = ? AND dog_house_id = ?`, [id, dogHouseId]);
     // Only image types: anything else stored here is not served, so it can never run as a page on this address.
     const match = /^data:(image\/(?:jpeg|png|webp|gif));base64,(.*)$/s.exec(row?.picture || '');
     return match ? { type: match[1], data: Buffer.from(match[2], 'base64') } : null;
