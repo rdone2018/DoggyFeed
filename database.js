@@ -114,6 +114,8 @@ const schema = [
     \`url\` VARCHAR(500) NULL,
     \`repeat_kind\` VARCHAR(10) NOT NULL DEFAULT 'none',
     \`repeat_days\` INT NULL,
+    \`reminder_kind\` VARCHAR(10) NULL,
+    \`reminder_days\` INT NULL,
     INDEX calendar_events_starts_at (\`starts_at\`)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   // Food served history. Rows are only added when a bowl is served and are not part of the
@@ -168,6 +170,8 @@ const laterColumns = [
   ['served_meals', 'plan_name', 'VARCHAR(120) NULL'],
   ['weight_history', 'daily_energy', 'DECIMAL(10,2) NULL'],
   ['weight_history', 'daily_energy_custom', 'TINYINT(1) NULL'],
+  ['calendar_events', 'reminder_kind', 'VARCHAR(10) NULL'],
+  ['calendar_events', 'reminder_days', 'INT NULL'],
   ['meal_items', 'auto_fill', 'TINYINT(1) NOT NULL DEFAULT 0'],
   ['saved_plan_items', 'auto_fill', 'TINYINT(1) NOT NULL DEFAULT 0']
 ];
@@ -299,7 +303,12 @@ function cleanState(state) {
       .map(([id, event]) => {
         const repeat = ['daily', 'weekly', 'yearly', 'custom'].includes(event.repeat) ? event.repeat : 'none';
         const repeatDays = repeat === 'custom' ? Math.round(amount(event.repeatDays, 0, 3650)) : 0;
+        // Reminder before the event: day, week, month, or custom (reminderDays days before).
+        let reminder = ['day', 'week', 'month', 'custom'].includes(event.reminder) ? event.reminder : null;
+        const reminderDays = reminder === 'custom' ? Math.round(amount(event.reminderDays, 0, 3650)) : 0;
+        if (reminder === 'custom' && reminderDays < 1) reminder = null;
         return {
+          reminder, reminderDays: reminder === 'custom' ? reminderDays : null,
           id, dogId: text(event.dogId, 80) || null, description: text(event.description, 200),
           location: text(event.location, 200) || null, start: String(event.start),
           duration: Math.round(amount(event.duration, 60, 525600)), url: webUrl(event.url),
@@ -405,9 +414,9 @@ export async function replaceState(rawState, baseRevision = null) {
       await connection.query('DELETE FROM calendar_events');
       for (const event of state.events) {
         await connection.query(
-          `INSERT INTO calendar_events (\`id\`, \`dog_id\`, \`description\`, \`location\`, \`starts_at\`, \`duration_minutes\`, \`url\`, \`repeat_kind\`, \`repeat_days\`)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [event.id, event.dogId, event.description, event.location, event.start, event.duration, event.url, event.repeat, event.repeatDays]
+          `INSERT INTO calendar_events (\`id\`, \`dog_id\`, \`description\`, \`location\`, \`starts_at\`, \`duration_minutes\`, \`url\`, \`repeat_kind\`, \`repeat_days\`, \`reminder_kind\`, \`reminder_days\`)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [event.id, event.dogId, event.description, event.location, event.start, event.duration, event.url, event.repeat, event.repeatDays, event.reminder, event.reminderDays]
         );
       }
     }
@@ -524,7 +533,8 @@ export async function readState() {
       events: eventRows.map(row => ({
         id: row.id, dogId: row.dog_id || '', description: row.description, location: row.location || '',
         start: row.starts_at, duration: Number(row.duration_minutes) || 0, url: row.url || '',
-        repeat: row.repeat_kind || 'none', repeatDays: row.repeat_days === null || row.repeat_days === undefined ? '' : Number(row.repeat_days)
+        repeat: row.repeat_kind || 'none', repeatDays: row.repeat_days === null || row.repeat_days === undefined ? '' : Number(row.repeat_days),
+        reminder: row.reminder_kind || '', reminderDays: row.reminder_days === null || row.reminder_days === undefined ? '' : Number(row.reminder_days)
       })),
       selectedDog: settings.find(setting => setting.setting_key === 'selectedDog')?.setting_value || '',
       revision: Number(settings.find(setting => setting.setting_key === 'stateRevision')?.setting_value) || 0
