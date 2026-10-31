@@ -117,6 +117,25 @@ const schema = [
     INDEX global_food_library_name (name),
     INDEX global_food_library_country (\`country\`)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // Languages of the page texts, and every visible text per language, keyed by its English text. key_hash is the
+  // MD5 of text_key, which keeps the key short enough for an index. modules/languages.js fills both at start.
+  `CREATE TABLE IF NOT EXISTS languages (
+    code VARCHAR(10) NOT NULL PRIMARY KEY,
+    name VARCHAR(60) NOT NULL,
+    native_name VARCHAR(60) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    enabled TINYINT(1) NOT NULL DEFAULT 1
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS translations (
+    language_code VARCHAR(10) NOT NULL,
+    key_hash CHAR(32) NOT NULL,
+    text_key TEXT NOT NULL,
+    translation TEXT NOT NULL,
+    edited TINYINT(1) NOT NULL DEFAULT 0,
+    updated_at DATETIME(3) NOT NULL,
+    PRIMARY KEY (language_code, key_hash),
+    CONSTRAINT translations_language FOREIGN KEY (language_code) REFERENCES languages (code) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS meal_items (
     dog_house_id VARCHAR(80) NULL,
     dog_id VARCHAR(80) NOT NULL,

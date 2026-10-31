@@ -40,6 +40,14 @@ All data belongs to a dog house (table `dog_house`: name, contact, email), and e
 - **Sign-in protection:** the Sign in form has the same honeypot field and form token as the New dog house form (with a minimum of 1 second instead of 3, as password managers fill the form at once); a filled-in honeypot gets the same answer as a wrong password. A wrong username and a wrong password get the same answer after the same password hashing. Hard limits on failed sign-ins: 5 for one username from one address (then a minute's wait), 10 per address in 15 minutes, 50 per address per day, and 20 per username per hour from all addresses together; over a limit the server answers 429 with a Retry-After time. The limits are kept in memory and use the same address as the New dog house limits (see `DOGGYFEED_TRUST_PROXY`).
 - **Security:** passwords are stored only as scrypt hashes. A session lasts 30 days from its last use and is kept in an HttpOnly cookie; the database stores only a hash of the session token. Behind an https proxy, the cookie is marked Secure when the proxy sends `X-Forwarded-Proto: https`.
 
+## Languages
+
+The page texts are stored in two tables: `languages` (code, name, native name, order, enabled) and `translations` (one row per language and English text: `text_key` is the English text, `translation` the text shown). At every server start DoggyFeed writes the English records first and then the Czech ones from `modules/texts-cs.js`. A translation changed directly in the database keeps its text when its `edited` column is set to 1; other rows are updated from the code.
+
+Choose the language at the top right of the page, or on the sign-in screen. The choice and the last texts are kept in the browser, so the page opens in that language at once; without a choice, a browser set to Czech starts in Czech. Dates and times follow the chosen language.
+
+The page is drawn in English and translated as it appears, so a text without a translation stays in English. A key can hold numbered parts for names and numbers, such as `{0}'s bowl` → `Miska – {0}`, and texts joined with ` · ` are translated part by part. Names and other data you enter are not translated. In the browser console, `doggyFeedMissingTexts` lists the texts of the current language that have no translation yet. To add a language, copy `modules/texts-cs.js`, translate it, and add it to `LANGUAGES` in `modules/languages.js`.
+
 ## Features
 
 - Keep individual dog profiles, weights, desired weights, meals per day, life stages, and activity estimates. The bowl energy reference uses the desired weight when set and is split across the meals per day.

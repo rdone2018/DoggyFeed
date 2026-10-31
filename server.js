@@ -10,6 +10,7 @@ import * as housesModule from './modules/houses.js';
 import * as mealsModule from './modules/meals.js';
 import * as formGuard from './modules/form-guard.js';
 import * as globalFoods from './modules/global-foods.js';
+import * as languagesModule from './modules/languages.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const maxBodyBytes = 20 * 1024 * 1024;
@@ -238,6 +239,26 @@ const server = http.createServer(async (request, response) => {
       sendJson(response, 200, { startedAt: serverInfo.startedAt, restartNeeded: Boolean(startupFingerprint) && current !== startupFingerprint });
     } catch (error) {
       sendRouteError(request, response, error, 'Unable to check the server code');
+    }
+    return;
+  }
+
+  // The languages of the page texts and each language's texts, also before signing in (the sign-in screen).
+  if (pathname === '/api/languages' && request.method === 'GET') {
+    try {
+      sendJson(response, 200, { languages: await languagesModule.listLanguages() });
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to read the languages');
+    }
+    return;
+  }
+
+  const translationsMatch = pathname.match(/^\/api\/translations\/([a-z]{2,3}(?:-[A-Za-z]{2,4})?)$/);
+  if (translationsMatch && request.method === 'GET') {
+    try {
+      sendJson(response, 200, { code: translationsMatch[1], texts: await languagesModule.readTexts(translationsMatch[1]) });
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to read the page texts');
     }
     return;
   }
@@ -684,6 +705,10 @@ async function startServer() {
   try {
     startupFingerprint = await serverCodeFingerprint();
     await initializeDatabase();
+    await languagesModule.seedTexts().catch(async error => {
+      console.error('Unable to write the page texts to the database:', error.message);
+      await recordError('Unable to write the page texts', error);
+    });
     server.listen(port, host, () => {
       console.log(`DoggyFeed is running at http://${host}:${port}`);
     });
