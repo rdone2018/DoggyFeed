@@ -102,6 +102,61 @@ export async function deleteGlobalFoods(ids) {
   }
 }
 
+// Copies a dog house's food, with its picture, into the global food library. The country is the dog house's, or
+// fallbackCountry (the browser's) when the dog house has none. A food with the same name and country already there
+// is only replaced when replace is true (administrators); otherwise the answer is status 'exists'.
+export async function exportFoodToGlobal(dogHouseId, foodId, fallbackCountry, { replace = false } = {}) {
+  const connection = await getConnection();
+  try {
+    await connection.beginTransaction();
+    const [food] = await connection.query(
+      'SELECT name, category, kcal, protein, fat, fiber, image, manufacturer_url, shop_url, `portion` FROM foods WHERE id = ? AND dog_house_id = ?',
+      [clean(foodId, 80), dogHouseId]
+    );
+    if (!food) throw httpError(404, 'This food is not saved in the database yet. Try again in a moment.');
+    const [house] = await connection.query('SELECT `country` FROM dog_house WHERE id = ?', [dogHouseId]);
+    const fields = foodFields({
+      name: food.name, category: food.category, country: house?.country || fallbackCountry,
+      kcal: food.kcal, protein: food.protein, fat: food.fat, fiber: food.fiber, portion: food.portion,
+      manufacturerUrl: food.manufacturer_url, shopUrl: food.shop_url
+    });
+    const [existing] = await connection.query(
+      'SELECT id FROM global_food_library WHERE LOWER(name) = LOWER(?) AND LOWER(COALESCE(`country`, \'\')) = LOWER(?) FOR UPDATE',
+      [fields.name, fields.country || '']
+    );
+    const result = { name: fields.name, country: fields.country || '' };
+    if (existing && !replace) {
+      await connection.rollback();
+      return { ...result, status: 'exists', id: existing.id };
+    }
+    const values = [fields.name, fields.category, fields.kcal, fields.protein, fields.fat, fields.fiber,
+      fields.manufacturerUrl, fields.shopUrl, fields.portion, fields.country, new Date()];
+    if (existing) {
+      // A food without a picture keeps the global food's picture.
+      await connection.query(
+        `UPDATE global_food_library SET name = ?, category = ?, kcal = ?, protein = ?, fat = ?, fiber = ?,
+         manufacturer_url = ?, shop_url = ?, \`portion\` = ?, \`country\` = ?, updated_at = ?${food.image ? ', image = ?' : ''} WHERE id = ?`,
+        [...values, ...(food.image ? [food.image] : []), existing.id]
+      );
+      await connection.commit();
+      return { ...result, status: 'updated', id: existing.id };
+    }
+    const id = `global-${randomUUID()}`;
+    await connection.query(
+      `INSERT INTO global_food_library (name, category, kcal, protein, fat, fiber, manufacturer_url, shop_url, \`portion\`, \`country\`, updated_at, image, id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [...values, food.image || null, id]
+    );
+    await connection.commit();
+    return { ...result, status: 'added', id };
+  } catch (error) {
+    await connection.rollback().catch(() => {});
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 // Imports CSV rows read by the page. A row whose name and country match a food in the library (ignoring case)
 // updates it and keeps its picture; other rows are added. A link or portion column left out keeps the stored value.
 export async function importGlobalFoods(rows) {

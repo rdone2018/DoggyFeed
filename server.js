@@ -487,7 +487,7 @@ const server = http.createServer(async (request, response) => {
   // Everything below reads or changes a dog house's data, so it needs a signed-in user. It only ever reaches the
   // data of that user's dog house.
   const needsSession = pathname === '/api/state' || pathname === '/api/state/revision' ||
-    pathname.startsWith('/api/pictures/') || pathname === '/api/global-foods' || pathname === '/api/served-meals' || pathname.startsWith('/api/served-meals/');
+    pathname.startsWith('/api/pictures/') || pathname === '/api/global-foods' || pathname === '/api/global-foods/export' || pathname === '/api/served-meals' || pathname.startsWith('/api/served-meals/');
   const isConnectionTest = pathname === '/api/state' && request.method === 'POST' &&
     new URL(request.url, 'http://localhost').searchParams.get('connectionTest') === '1';
   let session = null;
@@ -531,6 +531,21 @@ const server = http.createServer(async (request, response) => {
       sendJson(response, 200, { foods: await globalFoods.listGlobalFoods() });
     } catch (error) {
       sendRouteError(request, response, error, 'Unable to read the global food library');
+    }
+    return;
+  }
+
+  // Copies one of the dog house's foods into the global food library. Only administrators may replace a global food
+  // with the same name and country.
+  if (pathname === '/api/global-foods/export' && request.method === 'POST') {
+    try {
+      const body = await readRequestJson(request, 16 * 1024) || {};
+      const result = await globalFoods.exportFoodToGlobal(dogHouseId, body.foodId, body.country,
+        { replace: body.replace === true && session.user.isAdmin });
+      if (result.status !== 'exists') console.log(`Food ${result.name} ${result.status} in the global food library by ${session.user.username}.`);
+      sendJson(response, 200, { ...result, canReplace: session.user.isAdmin });
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to export the food to the global food library');
     }
     return;
   }
