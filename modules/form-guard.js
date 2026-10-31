@@ -1,13 +1,15 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
-// Abuse protection for creating a new dog house from the sign-in screen, which anyone who can reach DoggyFeed
-// may use. Everything is kept in memory, so it resets when the server restarts.
+// Abuse protection for the forms anyone who can reach DoggyFeed may use: Sign in and New dog house. Everything is
+// kept in memory, so it resets when the server restarts.
 
 // Timing check: when the form opens, the page gets a form token holding the time it was issued, signed with a
 // secret known only to this server process. A form sent back too quickly (a script), much later, with a token that
-// was changed, or with a token already used, is refused.
+// was changed, or with a token already used, is refused. Sign-in allows a quicker send, as password managers fill
+// the form at once.
 const secret = randomBytes(32);
 export const FORM_MIN_SECONDS = 3;
+export const SIGN_IN_MIN_SECONDS = 1;
 export const FORM_MAX_SECONDS = 60 * 60;
 const usedTokens = new Map();
 
@@ -19,20 +21,20 @@ export function formToken(now = Date.now()) {
 }
 
 // '' when the token is fine, otherwise why it is not: missing, invalid, used, too-fast or expired.
-export function formTokenProblem(token, now = Date.now()) {
+export function formTokenProblem(token, now = Date.now(), minSeconds = FORM_MIN_SECONDS) {
   const [issued, signature] = String(token || '').split('.');
   if (!issued || !signature) return 'missing';
   const expected = Buffer.from(sign(issued));
   const given = Buffer.from(signature);
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) return 'invalid';
   const ageSeconds = (now - Number(issued)) / 1000;
-  if (!(ageSeconds >= FORM_MIN_SECONDS)) return 'too-fast';
+  if (!(ageSeconds >= minSeconds)) return 'too-fast';
   if (ageSeconds > FORM_MAX_SECONDS) return 'expired';
   if (usedTokens.has(signature)) return 'used';
   return '';
 }
 
-// A token can be used for one sign-up only.
+// A token can be sent once only.
 export function useFormToken(token, now = Date.now()) {
   const [issued, signature] = String(token || '').split('.');
   usedTokens.set(signature, Number(issued));
@@ -85,4 +87,47 @@ export function noteSignupAttempt(address, now = Date.now()) {
 export function noteDogHouseCreated(address, now = Date.now()) {
   created.set(address, [...recent(created.get(address), DAY, now), now]);
   createdAll = [...recent(createdAll, DAY, now), now];
+}
+
+// Sign-in limits, counted on failed sign-ins only (a wrong username or password, or a refused form). A wrong
+// username and a wrong password count alike, so the limits say nothing about which usernames exist.
+export const SIGN_IN_LIMITS = {
+  failsPerAddressAndUser: 5, // then wait a minute
+  failsPerAddress15Minutes: 10,
+  failsPerAddressPerDay: 50,
+  failsPerUserPerHour: 20 // from all addresses together, against guessing spread over many addresses
+};
+const MINUTE = 60 * 1000;
+const failsByAddressAndUser = new Map();
+const failsByAddress = new Map();
+const failsByUser = new Map();
+
+// Seconds to wait before signing in may be tried again, or 0.
+export function signInWaitSeconds(address, username, now = Date.now()) {
+  const pair = recent(failsByAddressAndUser.get(`${address}|${username}`), 15 * MINUTE, now);
+  const fromAddress = recent(failsByAddress.get(address), DAY, now);
+  const forUser = recent(failsByUser.get(username), HOUR, now);
+  const waits = [];
+  if (pair.length >= SIGN_IN_LIMITS.failsPerAddressAndUser) waits.push(pair.at(-1) + MINUTE - now);
+  const last15 = fromAddress.filter(time => now - time < 15 * MINUTE);
+  if (last15.length >= SIGN_IN_LIMITS.failsPerAddress15Minutes) waits.push(last15[0] + 15 * MINUTE - now);
+  if (fromAddress.length >= SIGN_IN_LIMITS.failsPerAddressPerDay) waits.push(fromAddress[0] + DAY - now);
+  if (forUser.length >= SIGN_IN_LIMITS.failsPerUserPerHour) waits.push(forUser[0] + HOUR - now);
+  const wait = Math.max(0, ...waits);
+  return wait > 0 ? Math.ceil(wait / 1000) : 0;
+}
+
+export function noteFailedSignIn(address, username, now = Date.now()) {
+  const add = (map, key, window) => {
+    map.set(key, [...recent(map.get(key), window, now), now]);
+    if (map.size > 5000) for (const [old, times] of map) if (!recent(times, window, now).length) map.delete(old);
+  };
+  add(failsByAddressAndUser, `${address}|${username}`, 15 * MINUTE);
+  add(failsByAddress, address, DAY);
+  add(failsByUser, username, HOUR);
+}
+
+// A successful sign-in clears the short per-address-and-username count; the other limits stay.
+export function noteSignedIn(address, username) {
+  failsByAddressAndUser.delete(`${address}|${username}`);
 }
