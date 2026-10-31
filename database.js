@@ -54,6 +54,7 @@ const schema = [
     dog_house_id VARCHAR(80) NOT NULL,
     username VARCHAR(80) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    is_admin TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME(3) NOT NULL,
     UNIQUE KEY users_username (username),
     INDEX users_dog_house (dog_house_id)
@@ -212,11 +213,12 @@ const laterColumns = [
   ['calendar_events', 'reminder_days', 'INT NULL'],
   ['meal_items', 'auto_fill', 'TINYINT(1) NOT NULL DEFAULT 0'],
   ['saved_plan_items', 'auto_fill', 'TINYINT(1) NOT NULL DEFAULT 0'],
-  ...dogHouseTables().map(table => [table, 'dog_house_id', 'VARCHAR(80) NULL'])
+  ...dogHouseTables().map(table => [table, 'dog_house_id', 'VARCHAR(80) NULL']),
+  ['users', 'is_admin', 'TINYINT(1) NOT NULL DEFAULT 0']
 ];
 
 // Tables whose rows belong to a dog house.
-function dogHouseTables() {
+export function dogHouseTables() {
   return ['dogs', 'foods', 'meal_items', 'saved_plans', 'saved_plan_items', 'weight_history', 'calendar_events',
     'served_meals', 'served_meal_items'];
 }
@@ -237,6 +239,17 @@ export async function createDogHouse(connection, { name, contact = '', email = '
     [id, text(name, 120) || 'My dog house', text(contact, 200) || null, text(email, 200) || null, new Date()]
   );
   return id;
+}
+
+// There is always an administrator once users exist: when none is left (for example users made before the admin
+// role existed), the oldest user becomes one.
+async function ensureAnAdmin(connection) {
+  const [admins] = await connection.query('SELECT COUNT(*) AS count FROM users WHERE is_admin = 1');
+  if (Number(admins.count) > 0) return;
+  const [oldest] = await connection.query('SELECT id, username FROM users ORDER BY created_at, id LIMIT 1');
+  if (!oldest) return;
+  await connection.query('UPDATE users SET is_admin = 1 WHERE id = ?', [oldest.id]);
+  console.log(`${oldest.username} is now the DoggyFeed administrator.`);
 }
 
 // Data from before dog houses (rows without dog_house_id, and the settings selectedDog, hasApplicationState and
@@ -572,6 +585,7 @@ export async function initializeDatabase() {
     for (const statement of schema) await connection.query(statement);
     await addMissingColumns(connection);
     await assignDataToDogHouse(connection);
+    await ensureAnAdmin(connection);
     const rows = await connection.query(
       "SELECT setting_value FROM app_settings WHERE setting_key = 'schemaInitialized'"
     );

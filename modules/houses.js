@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
-import { createDogHouse, firstDogHouseId, getConnection } from '../database.js';
+import { createDogHouse, dogHouseTables, firstDogHouseId, getConnection } from '../database.js';
 
 // Dog houses, their users and sign-in sessions. Passwords are stored only as scrypt hashes with a random salt.
 // A session is a random token in an HttpOnly cookie; the database keeps only the token's SHA-256 hash.
@@ -46,15 +46,15 @@ async function passwordMatches(password, stored) {
 // Checked when a username does not exist, so a wrong username takes as long as a wrong password.
 const unknownUserHash = hashPassword(randomUUID());
 
-async function insertUser(connection, dogHouseId, username, password) {
+async function insertUser(connection, dogHouseId, username, password, isAdmin = false) {
   const name = normalUsername(username);
   const problem = usernameProblem(name) || passwordProblem(password);
   if (problem) throw httpError(400, problem);
   const id = `user-${randomUUID()}`;
   try {
     await connection.query(
-      'INSERT INTO users (id, dog_house_id, username, password_hash, created_at) VALUES (?, ?, ?, ?, ?)',
-      [id, dogHouseId, name, await hashPassword(password), new Date()]
+      'INSERT INTO users (id, dog_house_id, username, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, dogHouseId, name, await hashPassword(password), isAdmin ? 1 : 0, new Date()]
     );
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') throw httpError(409, `The username ${name} is already taken.`);
@@ -117,7 +117,8 @@ export async function setUpFirstUser({ houseName, contact, email, username, pass
     const house = houseFields({ name: houseName, contact, email });
     await connection.query('UPDATE dog_house SET name = ?, contact = ?, email = ? WHERE id = ?',
       [house.name, house.contact || null, house.email || null, dogHouseId]);
-    return insertUser(connection, dogHouseId, username, password);
+    // The first user is the administrator.
+    return insertUser(connection, dogHouseId, username, password, true);
   });
 }
 
@@ -168,7 +169,7 @@ export async function readSession(token) {
   const connection = await getConnection();
   try {
     const [row] = await connection.query(
-      `SELECT s.token_hash, s.expires_at, u.id AS user_id, u.username, h.id AS house_id, h.name, h.contact, h.email
+      `SELECT s.token_hash, s.expires_at, u.id AS user_id, u.username, u.is_admin, h.id AS house_id, h.name, h.contact, h.email
        FROM sessions s JOIN users u ON u.id = s.user_id JOIN dog_house h ON h.id = u.dog_house_id
        WHERE s.token_hash = ? AND s.expires_at > ?`,
       [tokenHash(token), new Date()]
@@ -179,7 +180,7 @@ export async function readSession(token) {
         [new Date(Date.now() + SESSION_DAYS * 86400000), row.token_hash]);
     }
     return {
-      user: { id: row.user_id, username: row.username },
+      user: { id: row.user_id, username: row.username, isAdmin: Boolean(row.is_admin) },
       house: { id: row.house_id, name: row.name, contact: row.contact || '', email: row.email || '' }
     };
   } finally {
@@ -203,11 +204,11 @@ export async function readDogHouse(dogHouseId) {
   try {
     const [house] = await connection.query('SELECT id, name, contact, email, created_at FROM dog_house WHERE id = ?', [dogHouseId]);
     if (!house) throw httpError(404, 'This dog house was not found.');
-    const users = await connection.query('SELECT id, username, created_at FROM users WHERE dog_house_id = ? ORDER BY username', [dogHouseId]);
+    const users = await connection.query('SELECT id, username, is_admin, created_at FROM users WHERE dog_house_id = ? ORDER BY username', [dogHouseId]);
     return {
       id: house.id, name: house.name, contact: house.contact || '', email: house.email || '',
       createdAt: new Date(house.created_at).toISOString(),
-      users: users.map(user => ({ id: user.id, username: user.username, createdAt: new Date(user.created_at).toISOString() }))
+      users: users.map(user => ({ id: user.id, username: user.username, isAdmin: Boolean(user.is_admin), createdAt: new Date(user.created_at).toISOString() }))
     };
   } finally {
     connection.release();
@@ -248,7 +249,142 @@ export async function removeUser(dogHouseId, userId, currentUserId) {
     const users = await connection.query('SELECT id FROM users WHERE dog_house_id = ? FOR UPDATE', [dogHouseId]);
     if (!users.some(user => user.id === userId)) throw httpError(404, 'This user was not found.');
     if (users.length <= 1) throw httpError(400, 'A dog house needs at least one user.');
+    if (await isLastAdmin(connection, userId)) throw httpError(400, 'This is the only administrator of DoggyFeed, so it cannot be removed.');
     await connection.query('DELETE FROM sessions WHERE user_id = ?', [userId]);
     await connection.query('DELETE FROM users WHERE id = ? AND dog_house_id = ?', [userId, dogHouseId]);
+  });
+}
+
+// Administration of all dog houses and users, for users with is_admin (the routes check that). An administrator
+// cannot delete or demote themselves or delete their own dog house, and DoggyFeed always keeps one administrator.
+
+async function isLastAdmin(connection, userId) {
+  const admins = await connection.query('SELECT id FROM users WHERE is_admin = 1 FOR UPDATE');
+  return admins.length === 1 && admins[0].id === userId;
+}
+
+async function requireDogHouse(connection, dogHouseId) {
+  const [house] = await connection.query('SELECT id, name FROM dog_house WHERE id = ? FOR UPDATE', [dogHouseId]);
+  if (!house) throw httpError(404, 'This dog house was not found.');
+  return house;
+}
+
+// Every dog house with how much data it holds, and every user with their dog house.
+export async function adminOverview() {
+  const connection = await getConnection();
+  try {
+    const houses = await connection.query('SELECT id, name, contact, email, created_at FROM dog_house ORDER BY name, created_at');
+    const users = await connection.query(
+      `SELECT u.id, u.username, u.is_admin, u.created_at, u.dog_house_id, h.name AS house_name
+       FROM users u LEFT JOIN dog_house h ON h.id = u.dog_house_id ORDER BY u.username`
+    );
+    const counts = new Map(houses.map(house => [house.id, {}]));
+    for (const [key, table] of [['dogs', 'dogs'], ['foods', 'foods'], ['plans', 'saved_plans'], ['weights', 'weight_history'],
+      ['events', 'calendar_events'], ['servedBowls', 'served_meals']]) {
+      for (const row of await connection.query(`SELECT dog_house_id, COUNT(*) AS count FROM \`${table}\` GROUP BY dog_house_id`)) {
+        const houseCounts = counts.get(row.dog_house_id);
+        if (houseCounts) houseCounts[key] = Number(row.count);
+      }
+    }
+    return {
+      houses: houses.map(house => ({
+        id: house.id, name: house.name, contact: house.contact || '', email: house.email || '',
+        createdAt: new Date(house.created_at).toISOString(),
+        counts: { users: users.filter(user => user.dog_house_id === house.id).length, ...counts.get(house.id) }
+      })),
+      users: users.map(user => ({
+        id: user.id, username: user.username, isAdmin: Boolean(user.is_admin), createdAt: new Date(user.created_at).toISOString(),
+        houseId: user.dog_house_id, houseName: user.house_name || ''
+      }))
+    };
+  } finally {
+    connection.release();
+  }
+}
+
+export async function adminCreateDogHouse(fields) {
+  return inTransaction(connection => createDogHouse(connection, houseFields(fields)));
+}
+
+export async function adminUpdateDogHouse(dogHouseId, fields) {
+  const house = houseFields(fields);
+  return inTransaction(async connection => {
+    await requireDogHouse(connection, dogHouseId);
+    await connection.query('UPDATE dog_house SET name = ?, contact = ?, email = ? WHERE id = ?',
+      [house.name, house.contact || null, house.email || null, dogHouseId]);
+  });
+}
+
+// Deletes a dog house with all its data (dogs, foods, bowls, plans, weight history, calendar, served bowls and
+// settings) and its users. confirmName must be the dog house's name, as a guard against deleting the wrong one.
+export async function adminDeleteDogHouse(dogHouseId, confirmName, currentHouseId) {
+  if (dogHouseId === currentHouseId) throw httpError(400, 'You cannot delete your own dog house. Move your user to another dog house first.');
+  return inTransaction(async connection => {
+    const house = await requireDogHouse(connection, dogHouseId);
+    if (clean(confirmName, 120) !== house.name) throw httpError(400, 'Type the dog house name exactly as shown to delete it.');
+    const [otherAdmins] = await connection.query('SELECT COUNT(*) AS count FROM users WHERE is_admin = 1 AND dog_house_id <> ?', [dogHouseId]);
+    if (Number(otherAdmins.count) === 0) throw httpError(400, 'This dog house has the only administrator of DoggyFeed, so it cannot be deleted.');
+    for (const table of dogHouseTables()) {
+      await connection.query(`DELETE FROM \`${table}\` WHERE dog_house_id = ?`, [dogHouseId]);
+    }
+    await connection.query('DELETE FROM app_settings WHERE LEFT(setting_key, ?) = ?', [dogHouseId.length + 1, `${dogHouseId}:`]);
+    await connection.query('DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE dog_house_id = ?)', [dogHouseId]);
+    await connection.query('DELETE FROM users WHERE dog_house_id = ?', [dogHouseId]);
+    await connection.query('DELETE FROM dog_house WHERE id = ?', [dogHouseId]);
+    return house.name;
+  });
+}
+
+export async function adminAddUser({ houseId, username, password, isAdmin }) {
+  return inTransaction(async connection => {
+    await requireDogHouse(connection, houseId);
+    return insertUser(connection, houseId, username, password, isAdmin === true);
+  });
+}
+
+async function requireUser(connection, userId) {
+  const [user] = await connection.query('SELECT id, username, dog_house_id, is_admin FROM users WHERE id = ? FOR UPDATE', [userId]);
+  if (!user) throw httpError(404, 'This user was not found.');
+  return user;
+}
+
+// Sets a new password and signs the user out everywhere, except in the administrator's own browser.
+export async function adminSetPassword(userId, password, keepToken) {
+  const problem = passwordProblem(password);
+  if (problem) throw httpError(400, problem);
+  return inTransaction(async connection => {
+    await requireUser(connection, userId);
+    await connection.query('UPDATE users SET password_hash = ? WHERE id = ?', [await hashPassword(password), userId]);
+    await connection.query('DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?', [userId, keepToken ? tokenHash(keepToken) : '']);
+  });
+}
+
+export async function adminSetAdmin(userId, isAdmin, currentUserId) {
+  if (!isAdmin && userId === currentUserId) throw httpError(400, 'You cannot remove your own administrator rights.');
+  return inTransaction(async connection => {
+    await requireUser(connection, userId);
+    if (!isAdmin && await isLastAdmin(connection, userId)) throw httpError(400, 'DoggyFeed needs at least one administrator.');
+    await connection.query('UPDATE users SET is_admin = ? WHERE id = ?', [isAdmin ? 1 : 0, userId]);
+  });
+}
+
+// Moves a user to another dog house. They are signed out, so their next sign-in opens the new dog house; an
+// administrator moving themselves stays signed in.
+export async function adminMoveUser(userId, dogHouseId, currentUserId) {
+  return inTransaction(async connection => {
+    await requireUser(connection, userId);
+    await requireDogHouse(connection, dogHouseId);
+    await connection.query('UPDATE users SET dog_house_id = ? WHERE id = ?', [dogHouseId, userId]);
+    if (userId !== currentUserId) await connection.query('DELETE FROM sessions WHERE user_id = ?', [userId]);
+  });
+}
+
+export async function adminDeleteUser(userId, currentUserId) {
+  if (userId === currentUserId) throw httpError(400, 'You cannot delete yourself.');
+  return inTransaction(async connection => {
+    await requireUser(connection, userId);
+    if (await isLastAdmin(connection, userId)) throw httpError(400, 'DoggyFeed needs at least one administrator.');
+    await connection.query('DELETE FROM sessions WHERE user_id = ?', [userId]);
+    await connection.query('DELETE FROM users WHERE id = ?', [userId]);
   });
 }

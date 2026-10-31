@@ -330,6 +330,56 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  // Admin console: all dog houses and users. Only for signed-in administrators. Changes use POST.
+  if (pathname === '/api/admin' || pathname.startsWith('/api/admin/')) {
+    const session = await requireSession(request, response).catch(error => {
+      sendRouteError(request, response, error, 'Unable to check the sign-in');
+      return null;
+    });
+    if (!session) return;
+    if (!session.user.isAdmin) {
+      sendJson(response, 403, { error: 'Only administrators can use the admin console.' });
+      return;
+    }
+    const decode = value => decodeURIComponent(value);
+    const houseMatch = /^\/api\/admin\/dog-houses\/([^/]+)(?:\/(delete))?$/.exec(pathname);
+    const userMatch = /^\/api\/admin\/users\/([^/]+)\/(password|admin|move|delete)$/.exec(pathname);
+    try {
+      if (request.method === 'GET' && pathname === '/api/admin') {
+        sendJson(response, 200, await housesModule.adminOverview());
+        return;
+      }
+      if (request.method !== 'POST') {
+        sendJson(response, 404, { error: 'Not found.' });
+        return;
+      }
+      const body = await readRequestJson(request, 16 * 1024) || {};
+      if (pathname === '/api/admin/dog-houses') {
+        await housesModule.adminCreateDogHouse(body);
+      } else if (houseMatch && houseMatch[2] === 'delete') {
+        const name = await housesModule.adminDeleteDogHouse(decode(houseMatch[1]), body.confirmName, session.house.id);
+        console.log(`Dog house ${name} and all its data were deleted by ${session.user.username}.`);
+      } else if (houseMatch) {
+        await housesModule.adminUpdateDogHouse(decode(houseMatch[1]), body);
+      } else if (pathname === '/api/admin/users') {
+        await housesModule.adminAddUser(body);
+      } else if (userMatch) {
+        const userId = decode(userMatch[1]);
+        if (userMatch[2] === 'password') await housesModule.adminSetPassword(userId, body.password, userId === session.user.id ? sessionToken(request) : '');
+        if (userMatch[2] === 'admin') await housesModule.adminSetAdmin(userId, body.isAdmin === true, session.user.id);
+        if (userMatch[2] === 'move') await housesModule.adminMoveUser(userId, String(body.houseId || ''), session.user.id);
+        if (userMatch[2] === 'delete') await housesModule.adminDeleteUser(userId, session.user.id);
+      } else {
+        sendJson(response, 404, { error: 'Not found.' });
+        return;
+      }
+      sendJson(response, 200, await housesModule.adminOverview());
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to change the administration data');
+    }
+    return;
+  }
+
   // Everything below reads or changes a dog house's data, so it needs a signed-in user. It only ever reaches the
   // data of that user's dog house.
   const needsSession = pathname === '/api/state' || pathname === '/api/state/revision' ||
