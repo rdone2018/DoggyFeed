@@ -490,6 +490,7 @@ export const CZECH_TEXTS = {
 
   // Admin
   'Administration': 'Správa',
+  'Admin sections': 'Části správy',
   'All dog houses and users of DoggyFeed. Only administrators see this page.': 'Všechny psí boudy a uživatelé DoggyFeed. Tuto stránku vidí jen správci.',
   'Only for administrators': 'Jen pro správce',
   'Ask an administrator of DoggyFeed for access.': 'O přístup požádejte správce DoggyFeed.',

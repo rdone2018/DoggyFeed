@@ -486,6 +486,7 @@ export const POLISH_TEXTS = {
 
   // Admin
   'Administration': 'Administracja',
+  'Admin sections': 'Sekcje administracji',
   'All dog houses and users of DoggyFeed. Only administrators see this page.': 'Wszystkie psie budy i użytkownicy DoggyFeed. Tę stronę widzą tylko administratorzy.',
   'Only for administrators': 'Tylko dla administratorów',
   'Ask an administrator of DoggyFeed for access.': 'Poproś administratora DoggyFeed o dostęp.',
