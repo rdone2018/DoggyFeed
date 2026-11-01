@@ -101,6 +101,7 @@ export const POLISH_TEXTS = {
   "{0}'s weight history": 'Historia wagi – {0}',
   "{0}'s bowls history": 'Historia misek – {0}',
   "{0}'s plans": 'Plany – {0}',
+  'Plans for any dog': 'Plany dla dowolnego psa',
   "{0}'s bowls": 'Miski – {0}',
   "{0}'s weight": 'Waga – {0}',
   "{0}'s daily energy": 'Dzienna energia – {0}',

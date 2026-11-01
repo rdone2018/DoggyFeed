@@ -105,6 +105,7 @@ export const CZECH_TEXTS = {
   "{0}'s weight history": 'Historie hmotnosti – {0}',
   "{0}'s bowls history": 'Historie misek – {0}',
   "{0}'s plans": 'Plány – {0}',
+  'Plans for any dog': 'Plány pro kteréhokoli psa',
   "{0}'s bowls": 'Misky – {0}',
   "{0}'s weight": 'Hmotnost – {0}',
   "{0}'s daily energy": 'Denní energie – {0}',
