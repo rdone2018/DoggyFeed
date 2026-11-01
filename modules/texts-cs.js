@@ -200,7 +200,7 @@ export const CZECH_TEXTS = {
   '"{0}" is saved for {1}': '„{0}“ je uložený pro psa {1}',
   "{0}'s bowl cleared": 'Miska – {0} vyprázdněna',
   "{0}'s bowl copied to {1}": 'Miska – {0} zkopírována: {1}',
-  "{0}'s bowl copied to {1}; Dry food fills each bowl": 'Miska – {0} zkopírována: {1}; granule doplní každou misku',
+  "{0}'s bowl copied to {1}; foods without a portion are worked out for each bowl": 'Miska – {0} zkopírována: {1}; krmiva bez porce se dopočítají pro každou misku',
   "{0}'s bowl recorded as served at {1}": 'Miska – {0} zaznamenána jako podaná v {1}',
   'Not connected to MariaDB. The served bowl was not recorded.': 'Není připojení k MariaDB. Podaná miska nebyla zaznamenána.',
   'The served bowl was not recorded: {0}': 'Podaná miska nebyla zaznamenána: {0}',

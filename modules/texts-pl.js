@@ -196,7 +196,7 @@ export const POLISH_TEXTS = {
   '"{0}" is saved for {1}': '„{0}” jest zapisany dla psa {1}',
   "{0}'s bowl cleared": 'Miska – {0} opróżniona',
   "{0}'s bowl copied to {1}": 'Miska – {0} skopiowana: {1}',
-  "{0}'s bowl copied to {1}; Dry food fills each bowl": 'Miska – {0} skopiowana: {1}; sucha karma uzupełnia każdą miskę',
+  "{0}'s bowl copied to {1}; foods without a portion are worked out for each bowl": 'Miska – {0} skopiowana: {1}; karmy bez porcji są przeliczane dla każdej miski',
   "{0}'s bowl recorded as served at {1}": 'Miska – {0} zapisana jako podana o {1}',
   'Not connected to MariaDB. The served bowl was not recorded.': 'Brak połączenia z MariaDB. Podana miska nie została zapisana.',
   'The served bowl was not recorded: {0}': 'Podana miska nie została zapisana: {0}',
