@@ -126,20 +126,21 @@ export async function setGlobalPictures(items) {
 
 // Copies a dog house's food, with its picture, into the global food library. The country is the dog house's, or
 // fallbackCountry (the browser's) when the dog house has none. A food with the same name and country already there
-// is only replaced when replace is true (administrators); otherwise the answer is status 'exists'.
+// is only replaced when replace is true (administrators); otherwise the answer is status 'exists'. The portion is a
+// dog house's own serving choice, so the global food is always stored without one.
 export async function exportFoodToGlobal(dogHouseId, foodId, fallbackCountry, { replace = false } = {}) {
   const connection = await getConnection();
   try {
     await connection.beginTransaction();
     const [food] = await connection.query(
-      'SELECT name, category, kcal, protein, fat, fiber, image, manufacturer_url, shop_url, `portion` FROM foods WHERE id = ? AND dog_house_id = ?',
+      'SELECT name, category, kcal, protein, fat, fiber, image, manufacturer_url, shop_url FROM foods WHERE id = ? AND dog_house_id = ?',
       [clean(foodId, 80), dogHouseId]
     );
     if (!food) throw httpError(404, 'This food is not saved in the database yet. Try again in a moment.');
     const [house] = await connection.query('SELECT `country` FROM dog_house WHERE id = ?', [dogHouseId]);
     const fields = foodFields({
       name: food.name, category: food.category, country: house?.country || fallbackCountry,
-      kcal: food.kcal, protein: food.protein, fat: food.fat, fiber: food.fiber, portion: food.portion,
+      kcal: food.kcal, protein: food.protein, fat: food.fat, fiber: food.fiber,
       manufacturerUrl: food.manufacturer_url, shopUrl: food.shop_url
     });
     const [existing] = await connection.query(
