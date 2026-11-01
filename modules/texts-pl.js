@@ -375,7 +375,7 @@ export const POLISH_TEXTS = {
 
   // Bowls history
   'Food served history': 'Historia podanych misek',
-  'Bowls recorded with Bowl served, 10 days at a time. Each column is one bowl, labelled with its first food. Click a column to load all bowls from that day into the Meal planner.': 'Miski zapisane przyciskiem Miska podana, po 10 dni. Każda kolumna to jedna miska opisana pierwszą karmą. Kliknij kolumnę, aby wczytać wszystkie miski z tego dnia do planera karmienia.',
+  'Bowls recorded with Bowl served, 10 days at a time. Each column is one bowl, labelled with its first food. Click a column to load that bowl into the Meal planner.': 'Miski zapisane przyciskiem Miska podana, po 10 dni. Każda kolumna to jedna miska opisana pierwszą karmą. Kliknij kolumnę, aby wczytać tę miskę do planera karmienia.',
   'Back to planner': 'Wróć do planera',
   'Choose the 10 days to show': 'Wybierz 10 dni do wyświetlenia',
   '← Previous 10 days': '← Poprzednie 10 dni',
@@ -399,7 +399,10 @@ export const POLISH_TEXTS = {
   'Choose a valid date and time': 'Podaj prawidłową datę i godzinę',
   'Unable to change the date: {0}': 'Nie można zmienić daty: {0}',
   'Unable to delete: {0}': 'Nie można usunąć: {0}',
-  'None of the foods served that day are in the food library any more': 'Żadnej z karm podanych tego dnia nie ma już w bibliotece karm',
+  'None of the foods in this bowl are in the food library any more': 'Żadnej z karm z tej miski nie ma już w bibliotece karm',
+  "{0}: {1} loaded into {2}'s bowl": '{0}: {1} wczytano do miski – {2}',
+  '1 food is no longer in the library': '1 karmy nie ma już w bibliotece',
+  '{0} foods are no longer in the library': 'Karmy, których nie ma już w bibliotece: {0}',
   'Delete the bowl served {0} ({1}, {2} kcal) from the history?': 'Usunąć z historii miskę podaną {0} ({1}, {2} kcal)?',
 
   // Calendar
