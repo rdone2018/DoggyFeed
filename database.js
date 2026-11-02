@@ -57,6 +57,7 @@ const schema = [
     username VARCHAR(80) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     is_admin TINYINT(1) NOT NULL DEFAULT 0,
+    is_guest TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME(3) NOT NULL,
     UNIQUE KEY users_username (username),
     INDEX users_dog_house (dog_house_id)
@@ -260,6 +261,7 @@ const laterColumns = [
   ['saved_plan_items', 'auto_fill', 'TINYINT(1) NOT NULL DEFAULT 0'],
   ...dogHouseTables().map(table => [table, 'dog_house_id', 'VARCHAR(80) NULL']),
   ['users', 'is_admin', 'TINYINT(1) NOT NULL DEFAULT 0'],
+  ['users', 'is_guest', 'TINYINT(1) NOT NULL DEFAULT 0'],
   ['dog_house', 'photo', 'LONGTEXT NULL'],
   ['dog_house', 'country', 'VARCHAR(60) NULL']
 ];

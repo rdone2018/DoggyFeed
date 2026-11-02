@@ -38,6 +38,7 @@ async function serverCodeFingerprint() {
   return hash.digest('hex').slice(0, 16);
 }
 let startupFingerprint = '';
+const GUEST_REFUSED = 'Guests can only look at this dog house, not change it.';
 
 // Returns the number of bytes sent. Larger answers (the app data carries the pictures) are gzip-compressed
 // when the browser accepts it.
@@ -393,7 +394,12 @@ const server = http.createServer(async (request, response) => {
     });
     if (!session) return;
     const houseId = session.house.id;
-    const userMatch = /^\/api\/dog-house\/users\/([^/]+)\/(password|delete)$/.exec(pathname);
+    const userMatch = /^\/api\/dog-house\/users\/([^/]+)\/(password|delete|guest)$/.exec(pathname);
+    // A guest only looks at the dog house; the one change allowed is a new password for themselves.
+    if (session.user.isGuest && request.method !== 'GET' && !(userMatch?.[2] === 'password' && decodeURIComponent(userMatch[1]) === session.user.id)) {
+      sendJson(response, 403, { error: GUEST_REFUSED });
+      return;
+    }
     try {
       if (pathname === '/api/dog-house' && request.method === 'GET') {
         sendJson(response, 200, await housesModule.readDogHouse(houseId));
@@ -403,13 +409,16 @@ const server = http.createServer(async (request, response) => {
         sendJson(response, 200, await housesModule.readDogHouse(houseId));
       } else if (pathname === '/api/dog-house/users' && request.method === 'POST') {
         const body = await readRequestJson(request, 16 * 1024);
-        await housesModule.addUser(houseId, body?.username, body?.password);
+        await housesModule.addUser(houseId, body?.username, body?.password, body?.isGuest === true);
         sendJson(response, 200, await housesModule.readDogHouse(houseId));
       } else if (userMatch && request.method === 'POST') {
         const userId = decodeURIComponent(userMatch[1]);
         if (userMatch[2] === 'password') {
           const body = await readRequestJson(request, 16 * 1024);
           await housesModule.setPassword(houseId, userId, body?.password, userId === session.user.id ? sessionToken(request) : '');
+        } else if (userMatch[2] === 'guest') {
+          const body = await readRequestJson(request, 16 * 1024);
+          await housesModule.setGuest(houseId, userId, body?.isGuest === true, session.user.id);
         } else {
           await housesModule.removeUser(houseId, userId, session.user.id);
         }
@@ -436,7 +445,7 @@ const server = http.createServer(async (request, response) => {
     }
     const decode = value => decodeURIComponent(value);
     const houseMatch = /^\/api\/admin\/dog-houses\/([^/]+)(?:\/(delete))?$/.exec(pathname);
-    const userMatch = /^\/api\/admin\/users\/([^/]+)\/(password|admin|move|delete)$/.exec(pathname);
+    const userMatch = /^\/api\/admin\/users\/([^/]+)\/(password|admin|guest|move|delete)$/.exec(pathname);
     try {
       if (request.method === 'GET' && pathname === '/api/admin') {
         sendJson(response, 200, await housesModule.adminOverview());
@@ -498,6 +507,7 @@ const server = http.createServer(async (request, response) => {
         const userId = decode(userMatch[1]);
         if (userMatch[2] === 'password') await housesModule.adminSetPassword(userId, body.password, userId === session.user.id ? sessionToken(request) : '');
         if (userMatch[2] === 'admin') await housesModule.adminSetAdmin(userId, body.isAdmin === true, session.user.id);
+        if (userMatch[2] === 'guest') await housesModule.adminSetGuest(userId, body.isGuest === true, session.user.id);
         if (userMatch[2] === 'move') await housesModule.adminMoveUser(userId, String(body.houseId || ''), session.user.id);
         if (userMatch[2] === 'delete') await housesModule.adminDeleteUser(userId, session.user.id);
       } else {
@@ -528,6 +538,10 @@ const server = http.createServer(async (request, response) => {
     if (!session) return;
   }
   const dogHouseId = session?.house.id;
+  if (session?.user.isGuest && request.method !== 'GET') {
+    sendJson(response, 403, { error: GUEST_REFUSED });
+    return;
+  }
 
   if (pathname === '/api/state' && request.method === 'GET') {
     // Loads taking over 5 seconds are logged, split into the MariaDB read and sending the answer, to tell a slow
