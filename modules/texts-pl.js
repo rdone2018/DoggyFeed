@@ -453,6 +453,25 @@ export const POLISH_TEXTS = {
   'Event saved in this browser only. Not connected to MariaDB.': 'Wydarzenie zapisano tylko w tej przeglądarce. Brak połączenia z MariaDB.',
   'Delete the event "{0}"?': 'Usunąć wydarzenie „{0}”?',
 
+  // Welcome
+  'Welcome': 'Witaj',
+  'Getting started': 'Pierwsze kroki',
+  'Welcome to your dog house': 'Witaj w swojej psiej budzie',
+  'A few steps make DoggyFeed ready for your dogs.': 'Kilka kroków i DoggyFeed jest gotowy dla Twoich psów.',
+  'Everything you see now was created automatically as an example.': 'Wszystko, co teraz widzisz, zostało utworzone automatycznie jako przykład.',
+  'The dogs and the foods in the Food library are sample records. Update or delete them, and create your own.': 'Psy i karmy w bibliotece karm to przykładowe wpisy. Zmień je lub usuń i utwórz własne.',
+  'Add your dogs': 'Dodaj swoje psy',
+  'Add your dog, or several dogs, to the dog house in My dogs. Each dog gets its own bowl in the Meal planner, with an energy target worked out from its weight and activity.': 'W menu Moje psy dodaj do psiej budy swojego psa lub kilka psów. Każdy pies dostaje w planerze karmienia własną miskę z celem energetycznym obliczonym na podstawie wagi i aktywności.',
+  'Open My dogs': 'Otwórz Moje psy',
+  'Fill your Food library': 'Uzupełnij bibliotekę karm',
+  'Add the foods your dogs like, with their nutrition values. You can import them from the Global food library, which is shared with all users (Import from Global food library), or from your own CSV file (Import CSV).': 'Dodaj karmy, które lubią Twoje psy, z ich wartościami odżywczymi. Możesz je zaimportować z globalnej biblioteki karm, wspólnej dla wszystkich użytkowników (Importuj z globalnej biblioteki karm), albo z własnego pliku CSV (Importuj CSV).',
+  'Open Food library': 'Otwórz bibliotekę karm',
+  'Update your dog house profile': 'Uzupełnij profil psiej budy',
+  'Fill in the dog house details and photo, and add other users so they can open this dog house and use all its functions.': 'Uzupełnij dane i zdjęcie psiej budy oraz dodaj innych użytkowników, aby mogli otwierać tę psią budę i korzystać ze wszystkich jej funkcji.',
+  'Open Dog house': 'Otwórz psią budę',
+  'Go to the Meal planner': 'Przejdź do planera karmienia',
+  'You can open these steps again with Getting started on the Dog house page.': 'Te kroki otworzysz ponownie przyciskiem Pierwsze kroki na stronie Psia buda.',
+
   // Dog house
   'Your dog house': 'Twoja psia buda',
   'Signed in as': 'Zalogowano jako',

@@ -457,6 +457,25 @@ export const CZECH_TEXTS = {
   'Event saved in this browser only. Not connected to MariaDB.': 'Událost uložena jen v tomto prohlížeči. Není připojení k MariaDB.',
   'Delete the event "{0}"?': 'Smazat událost „{0}“?',
 
+  // Welcome
+  'Welcome': 'Vítejte',
+  'Getting started': 'Začínáme',
+  'Welcome to your dog house': 'Vítejte ve své psí boudě',
+  'A few steps make DoggyFeed ready for your dogs.': 'Pár kroků a DoggyFeed je připravený pro vaše psy.',
+  'Everything you see now was created automatically as an example.': 'Vše, co teď vidíte, bylo vytvořeno automaticky jako příklad.',
+  'The dogs and the foods in the Food library are sample records. Update or delete them, and create your own.': 'Psi a krmiva v knihovně krmiv jsou ukázkové záznamy. Upravte je nebo smažte a vytvořte vlastní.',
+  'Add your dogs': 'Přidejte své psy',
+  'Add your dog, or several dogs, to the dog house in My dogs. Each dog gets its own bowl in the Meal planner, with an energy target worked out from its weight and activity.': 'V nabídce Moji psi přidejte do psí boudy svého psa, nebo více psů. Každý pes dostane v plánovači krmení vlastní misku s energetickým cílem vypočteným z jeho hmotnosti a aktivity.',
+  'Open My dogs': 'Otevřít Moji psi',
+  'Fill your Food library': 'Naplňte knihovnu krmiv',
+  'Add the foods your dogs like, with their nutrition values. You can import them from the Global food library, which is shared with all users (Import from Global food library), or from your own CSV file (Import CSV).': 'Přidejte krmiva, která vaši psi mají rádi, i s nutričními hodnotami. Můžete je importovat z globální knihovny krmiv, kterou sdílejí všichni uživatelé (Importovat z globální knihovny krmiv), nebo z vlastního souboru CSV (Importovat CSV).',
+  'Open Food library': 'Otevřít knihovnu krmiv',
+  'Update your dog house profile': 'Doplňte profil psí boudy',
+  'Fill in the dog house details and photo, and add other users so they can open this dog house and use all its functions.': 'Vyplňte údaje a fotku psí boudy a přidejte další uživatele, aby mohli psí boudu otevřít a používat všechny její funkce.',
+  'Open Dog house': 'Otevřít psí boudu',
+  'Go to the Meal planner': 'Přejít do plánovače krmení',
+  'You can open these steps again with Getting started on the Dog house page.': 'Tyto kroky znovu otevřete tlačítkem Začínáme na stránce Psí bouda.',
+
   // Dog house
   'Your dog house': 'Vaše psí bouda',
   'Signed in as': 'Přihlášen jako',
