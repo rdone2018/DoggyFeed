@@ -488,6 +488,7 @@ export const POLISH_TEXTS = {
   'Getting started': 'Pierwsze kroki',
   'Welcome to your dog house': 'Witaj w swojej psiej budzie',
   'A few steps make DoggyFeed ready for your dogs.': 'Kilka kroków i DoggyFeed jest gotowy dla Twoich psów.',
+  'DoggyFeed introduction animation': 'Animacja wprowadzająca DoggyFeed',
   'Everything you see now was created automatically as an example.': 'Wszystko, co teraz widzisz, zostało utworzone automatycznie jako przykład.',
   'The dogs and the foods in the Food library are sample records. Update or delete them, and create your own.': 'Psy i karmy w bibliotece karm to przykładowe wpisy. Zmień je lub usuń i utwórz własne.',
   'Add your dogs': 'Dodaj swoje psy',

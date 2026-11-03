@@ -492,6 +492,7 @@ export const CZECH_TEXTS = {
   'Getting started': 'Začínáme',
   'Welcome to your dog house': 'Vítejte ve své psí boudě',
   'A few steps make DoggyFeed ready for your dogs.': 'Pár kroků a DoggyFeed je připravený pro vaše psy.',
+  'DoggyFeed introduction animation': 'Úvodní animace DoggyFeed',
   'Everything you see now was created automatically as an example.': 'Vše, co teď vidíte, bylo vytvořeno automaticky jako příklad.',
   'The dogs and the foods in the Food library are sample records. Update or delete them, and create your own.': 'Psi a krmiva v knihovně krmiv jsou ukázkové záznamy. Upravte je nebo smažte a vytvořte vlastní.',
   'Add your dogs': 'Přidejte své psy',

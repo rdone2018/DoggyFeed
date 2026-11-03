@@ -246,6 +246,25 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  // The introduction animation shown on the Welcome page, kept beside index.html. A missing file answers 404
+  // and the page leaves the animation out.
+  if (pathname === '/doggyfeed-introduction.gif' && request.method === 'GET') {
+    try {
+      const gif = await readFile(path.join(root, 'doggyfeed-introduction.gif'));
+      response.writeHead(200, {
+        'Content-Type': 'image/gif',
+        'Content-Length': gif.length,
+        'Cache-Control': 'no-cache',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      response.end(gif);
+    } catch (error) {
+      if (error.code === 'ENOENT') sendJson(response, 404, { error: 'Not found.' });
+      else sendRouteError(request, response, error, 'Unable to read the introduction animation');
+    }
+    return;
+  }
+
   // The countries a dog house can be in, also for the New dog house form before signing in.
   if (pathname === '/api/countries' && request.method === 'GET') {
     try {
