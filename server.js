@@ -12,6 +12,7 @@ import * as formGuard from './modules/form-guard.js';
 import * as globalFoods from './modules/global-foods.js';
 import * as languagesModule from './modules/languages.js';
 import * as countriesModule from './modules/countries.js';
+import * as webFoodSearch from './modules/web-food-search.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const maxBodyBytes = 20 * 1024 * 1024;
@@ -524,7 +525,7 @@ const server = http.createServer(async (request, response) => {
   // Everything below reads or changes a dog house's data, so it needs a signed-in user. It only ever reaches the
   // data of that user's dog house.
   const needsSession = pathname === '/api/state' || pathname === '/api/state/revision' ||
-    pathname.startsWith('/api/pictures/') || pathname === '/api/global-foods' || pathname === '/api/global-foods/export' || pathname === '/api/served-meals' || pathname.startsWith('/api/served-meals/');
+    pathname.startsWith('/api/pictures/') || pathname === '/api/global-foods' || pathname === '/api/global-foods/export' || pathname === '/api/web-foods' || pathname === '/api/web-foods/picture' || pathname === '/api/served-meals' || pathname.startsWith('/api/served-meals/');
   const isConnectionTest = pathname === '/api/state' && request.method === 'POST' &&
     new URL(request.url, 'http://localhost').searchParams.get('connectionTest') === '1';
   let session = null;
@@ -587,6 +588,27 @@ const server = http.createServer(async (request, response) => {
       sendJson(response, 200, { ...result, canReplace: session.user.isAdmin });
     } catch (error) {
       sendRouteError(request, response, error, 'Unable to export the food to the global food library');
+    }
+    return;
+  }
+
+  // Web search for the Add food form: foods found in Open Pet Food Facts, and their pictures.
+  if (pathname === '/api/web-foods' && request.method === 'GET') {
+    try {
+      const query = new URL(request.url, 'http://localhost').searchParams.get('q');
+      sendJson(response, 200, { foods: await webFoodSearch.searchWebFoods(query) });
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to search the web for foods');
+    }
+    return;
+  }
+  if (pathname === '/api/web-foods/picture' && request.method === 'GET') {
+    try {
+      const picture = await webFoodSearch.readWebFoodPicture(new URL(request.url, 'http://localhost').searchParams.get('url'));
+      response.writeHead(200, { 'Content-Type': picture.type, 'Content-Length': picture.bytes.length, 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff' });
+      response.end(picture.bytes);
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to load the food picture');
     }
     return;
   }
