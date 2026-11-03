@@ -40,6 +40,8 @@ async function serverCodeFingerprint() {
 }
 let startupFingerprint = '';
 const GUEST_REFUSED = 'Guests can only look at this dog house, not change it.';
+// The Welcome page's introduction animation in English, Czech and Polish.
+const INTRODUCTION_GIFS = new Set(['/doggyfeed-introduction.gif', '/doggyfeed-predstaveni.gif', '/doggyfeed-prezentacja.gif']);
 
 // Returns the number of bytes sent. Larger answers (the app data carries the pictures) are gzip-compressed
 // when the browser accepts it.
@@ -246,11 +248,11 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  // The introduction animation shown on the Welcome page, kept beside index.html. A missing file answers 404
-  // and the page leaves the animation out.
-  if (pathname === '/doggyfeed-introduction.gif' && request.method === 'GET') {
+  // The introduction animations shown on the Welcome page, one per language, kept beside index.html. A missing
+  // file answers 404 and the page shows the English one instead, or leaves the animation out.
+  if (INTRODUCTION_GIFS.has(pathname) && request.method === 'GET') {
     try {
-      const gif = await readFile(path.join(root, 'doggyfeed-introduction.gif'));
+      const gif = await readFile(path.join(root, pathname.slice(1)));
       response.writeHead(200, {
         'Content-Type': 'image/gif',
         'Content-Length': gif.length,
