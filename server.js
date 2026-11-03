@@ -592,11 +592,12 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  // Web search for the Add food form: foods found in Open Pet Food Facts, and their pictures.
+  // Web search for the Add food form: foods found on the web (TinyFish) or in Open Pet Food Facts, and their pictures.
   if (pathname === '/api/web-foods' && request.method === 'GET') {
     try {
-      const query = new URL(request.url, 'http://localhost').searchParams.get('q');
-      sendJson(response, 200, { foods: await webFoodSearch.searchWebFoods(query) });
+      const params = new URL(request.url, 'http://localhost').searchParams;
+      sendJson(response, 200, await webFoodSearch.searchWebFoods(params.get('q'),
+        { country: session.house.country, language: params.get('language') }));
     } catch (error) {
       sendRouteError(request, response, error, 'Unable to search the web for foods');
     }
