@@ -82,6 +82,8 @@ export const POLISH_TEXTS = {
   'Reminder': 'Przypomnienie',
   'Reminders': 'Przypomnienia',
   'Coming up': 'Wkrótce',
+  'Nothing due now. Coming up:': 'Na razie nic do zrobienia. Wkrótce:',
+  'reminder from {0}': 'przypomnienie od {0}',
   'Dismiss reminder for {0}': 'Zamknij przypomnienie dla {0}',
   'Turn on notifications': 'Włącz powiadomienia',
   "Nothing coming up in the next 90 days. Add events in the Dog's calendar.": 'W ciągu najbliższych 90 dni nic nie zaplanowano. Dodaj wydarzenia w Psim kalendarzu.',
@@ -433,7 +435,10 @@ export const POLISH_TEXTS = {
 
   // Calendar
   'Appointments and reminders': 'Terminy i przypomnienia',
-  'Events for each dog or for all dogs. Click a day to add an event, or an event to change or delete it. Reminders show at the top of DoggyFeed while it is open. System notifications need DoggyFeed opened over https or on this computer.': 'Wydarzenia dla poszczególnych psów lub dla wszystkich. Kliknij dzień, aby dodać wydarzenie, albo wydarzenie, aby je zmienić lub usunąć. Przypomnienia są wyświetlane u góry, dopóki DoggyFeed jest otwarty. Powiadomienia systemowe wymagają DoggyFeed otwartego przez https lub na tym komputerze.',
+  'Events for each dog or for all dogs. Click a day to add an event, or an event to change or delete it. Reminders show at the top of DoggyFeed while it is open.': 'Wydarzenia dla poszczególnych psów lub dla wszystkich. Kliknij dzień, aby dodać wydarzenie, albo wydarzenie, aby je zmienić lub usunąć. Przypomnienia są wyświetlane u góry, dopóki DoggyFeed jest otwarty.',
+  'System notifications need DoggyFeed opened over https or on this computer.': 'Powiadomienia systemowe wymagają DoggyFeed otwartego przez https lub na tym komputerze.',
+  'Notifications are blocked for DoggyFeed in this browser.': 'Powiadomienia dla DoggyFeed są zablokowane w tej przeglądarce.',
+  'Reminder {0}': 'Przypomnienie {0}',
   'Add event': 'Dodaj wydarzenie',
   'Previous month': 'Poprzedni miesiąc',
   'Next month': 'Następny miesiąc',

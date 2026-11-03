@@ -86,6 +86,8 @@ export const CZECH_TEXTS = {
   'Reminder': 'Připomínka',
   'Reminders': 'Připomínky',
   'Coming up': 'Nadcházející',
+  'Nothing due now. Coming up:': 'Teď nic není na řadě. Nadcházející:',
+  'reminder from {0}': 'připomínka od {0}',
   'Dismiss reminder for {0}': 'Zavřít připomínku pro {0}',
   'Turn on notifications': 'Zapnout oznámení',
   "Nothing coming up in the next 90 days. Add events in the Dog's calendar.": 'V příštích 90 dnech nic není. Přidejte události v Psím kalendáři.',
@@ -437,7 +439,10 @@ export const CZECH_TEXTS = {
 
   // Calendar
   'Appointments and reminders': 'Termíny a připomínky',
-  'Events for each dog or for all dogs. Click a day to add an event, or an event to change or delete it. Reminders show at the top of DoggyFeed while it is open. System notifications need DoggyFeed opened over https or on this computer.': 'Události pro jednotlivé psy nebo pro všechny. Kliknutím na den přidáte událost, kliknutím na událost ji změníte nebo smažete. Připomínky se zobrazují nahoře, dokud je DoggyFeed otevřený. Systémová oznámení vyžadují DoggyFeed otevřený přes https nebo na tomto počítači.',
+  'Events for each dog or for all dogs. Click a day to add an event, or an event to change or delete it. Reminders show at the top of DoggyFeed while it is open.': 'Události pro jednotlivé psy nebo pro všechny. Kliknutím na den přidáte událost, kliknutím na událost ji změníte nebo smažete. Připomínky se zobrazují nahoře, dokud je DoggyFeed otevřený.',
+  'System notifications need DoggyFeed opened over https or on this computer.': 'Systémová oznámení vyžadují DoggyFeed otevřený přes https nebo na tomto počítači.',
+  'Notifications are blocked for DoggyFeed in this browser.': 'Oznámení jsou pro DoggyFeed v tomto prohlížeči zablokovaná.',
+  'Reminder {0}': 'Připomínka {0}',
   'Add event': 'Přidat událost',
   'Previous month': 'Předchozí měsíc',
   'Next month': 'Další měsíc',
