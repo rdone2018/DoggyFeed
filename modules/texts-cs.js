@@ -674,6 +674,7 @@ export const CZECH_TEXTS = {
   'The server answered HTTP {0}': 'Server odpověděl HTTP {0}',
 
   // Saving
+  'Updated with changes saved in another window or device': 'Aktualizováno o změny uložené v jiném okně nebo zařízení',
   'Unable to save: {0}': 'Nelze uložit: {0}',
   'Database save failed: {0}': 'Uložení do databáze selhalo: {0}',
   'Cannot reach the DoggyFeed server ({0})': 'Server DoggyFeed není dostupný ({0})',

@@ -670,6 +670,7 @@ export const POLISH_TEXTS = {
   'The server answered HTTP {0}': 'Serwer odpowiedział HTTP {0}',
 
   // Saving
+  'Updated with changes saved in another window or device': 'Zaktualizowano o zmiany zapisane w innym oknie lub urządzeniu',
   'Unable to save: {0}': 'Nie można zapisać: {0}',
   'Database save failed: {0}': 'Zapis do bazy danych nie powiódł się: {0}',
   'Cannot reach the DoggyFeed server ({0})': 'Brak połączenia z serwerem DoggyFeed ({0})',
