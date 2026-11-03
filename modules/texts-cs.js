@@ -295,6 +295,7 @@ export const CZECH_TEXTS = {
   'eShop ↗': 'E-shop ↗',
   '{0} manufacturer website (opens in a new tab)': '{0} – web výrobce (otevře se v nové kartě)',
   '{0} eShop page (opens in a new tab)': '{0} – stránka v e-shopu (otevře se v nové kartě)',
+  'Sort by this column': 'Seřadit podle tohoto sloupce',
   'Search the web for this food': 'Vyhledat toto krmivo na webu',
   'e.g. Brit Care Salmon': 'např. Brit Care Salmon',
   'Search': 'Hledat',

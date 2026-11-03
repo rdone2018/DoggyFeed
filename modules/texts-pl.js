@@ -291,6 +291,7 @@ export const POLISH_TEXTS = {
   'eShop ↗': 'Sklep ↗',
   '{0} manufacturer website (opens in a new tab)': '{0} – strona producenta (otwiera się w nowej karcie)',
   '{0} eShop page (opens in a new tab)': '{0} – strona w sklepie (otwiera się w nowej karcie)',
+  'Sort by this column': 'Sortuj według tej kolumny',
   'Search the web for this food': 'Wyszukaj tę karmę w internecie',
   'e.g. Brit Care Salmon': 'np. Brit Care Salmon',
   'Search': 'Szukaj',
