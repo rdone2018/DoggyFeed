@@ -18,7 +18,7 @@ export const CZECH_TEXTS = {
   'Admin': 'Správa',
   'Admin console': 'Správa systému',
   'Sign out': 'Odhlásit se',
-  'Back up my data': 'Zálohovat moje data',
+  'Backup all my data': 'Zálohovat všechna moje data',
   'Download a ZIP file with all data of this dog house in one Excel file and its photos in folders': 'Stáhnout soubor ZIP se všemi daty této psí boudy v jednom souboru Excel a s jejími fotkami ve složkách',
   'Preparing the backup…': 'Připravuji zálohu…',
   'The backup was downloaded': 'Záloha byla stažena',

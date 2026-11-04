@@ -14,7 +14,7 @@ export const POLISH_TEXTS = {
   'Admin': 'Administracja',
   'Admin console': 'Panel administracyjny',
   'Sign out': 'Wyloguj się',
-  'Back up my data': 'Utwórz kopię zapasową moich danych',
+  'Backup all my data': 'Utwórz kopię wszystkich moich danych',
   'Download a ZIP file with all data of this dog house in one Excel file and its photos in folders': 'Pobierz plik ZIP ze wszystkimi danymi tej psiej budy w jednym pliku Excel i jej zdjęciami w folderach',
   'Preparing the backup…': 'Przygotowuję kopię zapasową…',
   'The backup was downloaded': 'Kopia zapasowa została pobrana',
