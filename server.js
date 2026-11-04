@@ -13,6 +13,7 @@ import * as globalFoods from './modules/global-foods.js';
 import * as languagesModule from './modules/languages.js';
 import * as countriesModule from './modules/countries.js';
 import * as webFoodSearch from './modules/web-food-search.js';
+import * as backupModule from './modules/backup.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const maxBodyBytes = 20 * 1024 * 1024;
@@ -546,7 +547,7 @@ const server = http.createServer(async (request, response) => {
   // Everything below reads or changes a dog house's data, so it needs a signed-in user. It only ever reaches the
   // data of that user's dog house.
   const needsSession = pathname === '/api/state' || pathname === '/api/state/revision' ||
-    pathname.startsWith('/api/pictures/') || pathname === '/api/global-foods' || pathname === '/api/global-foods/export' || pathname === '/api/web-foods' || pathname === '/api/web-foods/picture' || pathname === '/api/served-meals' || pathname.startsWith('/api/served-meals/');
+    pathname.startsWith('/api/pictures/') || pathname === '/api/global-foods' || pathname === '/api/global-foods/export' || pathname === '/api/web-foods' || pathname === '/api/web-foods/picture' || pathname === '/api/served-meals' || pathname.startsWith('/api/served-meals/') || pathname === '/api/backup';
   const isConnectionTest = pathname === '/api/state' && request.method === 'POST' &&
     new URL(request.url, 'http://localhost').searchParams.get('connectionTest') === '1';
   let session = null;
@@ -584,6 +585,27 @@ const server = http.createServer(async (request, response) => {
       });
     } catch (error) {
       sendRouteError(request, response, error, 'Unable to read application data');
+    }
+    return;
+  }
+
+  // Backup my data: a ZIP with all data of the user's dog house in one Excel file and its pictures in folders.
+  if (pathname === '/api/backup' && request.method === 'GET') {
+    try {
+      const createdAt = new Date();
+      const zip = backupModule.buildBackupZip(await backupModule.readBackupData(dogHouseId), createdAt);
+      const fileName = backupModule.backupFileName(session.house.name, createdAt);
+      response.writeHead(200, {
+        'Content-Type': 'application/zip',
+        'Content-Length': zip.length,
+        'Content-Disposition': `attachment; filename="${fileName.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '')}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      response.end(zip);
+      console.log(`Backup of ${session.house.name} downloaded by ${session.user.username} (${Math.round(zip.length / 1024)} KB)`);
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to create the backup');
     }
     return;
   }
