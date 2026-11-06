@@ -166,6 +166,7 @@ export const POLISH_TEXTS = {
   'Save this bowl to the food served history': 'Zapisz tę miskę w historii podanych misek',
   "Record {0}'s bowl as served": 'Zapisz miskę – {0} jako podaną',
   'Bowl served': 'Miska podana',
+  'Last bowl served': 'Ostatnio podana miska',
   'Add foods and enter the amount served.': 'Dodaj karmy i wpisz podaną ilość.',
   'Energy references are rough estimates based on weight and activity. Individual needs vary. Ask your veterinarian about a complete diet and feeding amounts.': 'Zapotrzebowanie energetyczne to przybliżone szacunki na podstawie wagi i aktywności. Indywidualne potrzeby są różne. O pełnowartościową dietę i dawki karmienia zapytaj weterynarza.',
   "Each dog's plans sit under its bowl. Drag a plan onto the bowl to add its foods, double-click it to load it into the bowl, or use the button on the tile.": 'Plany każdego psa są pod jego miską. Przeciągnij plan na miskę, aby dodać jego karmy, kliknij go dwukrotnie, aby wczytać go do miski, albo użyj przycisku na kafelku.',

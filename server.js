@@ -761,6 +761,15 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  if (pathname === '/api/served-meals/last' && request.method === 'GET') {
+    try {
+      sendJson(response, 200, { last: await mealsModule.getLastServedMeals(dogHouseId) });
+    } catch (error) {
+      sendRouteError(request, response, error, 'Unable to read the last served bowls');
+    }
+    return;
+  }
+
   if (pathname === '/api/served-meals' && request.method === 'POST') {
     try {
       const meal = await readRequestJson(request, 512 * 1024);

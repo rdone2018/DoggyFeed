@@ -99,6 +99,39 @@ export async function deleteServedMeal(dogHouseId, id) {
   }
 }
 
+// Returns each dog's most recent served bowl (served now or earlier) with its foods, as { dogId: meal }.
+export async function getLastServedMeals(dogHouseId, now = new Date()) {
+  const connection = await getConnection();
+  try {
+    const meals = await connection.query(
+      `SELECT served.* FROM served_meals served
+       JOIN (SELECT dog_id, MAX(served_at) AS last_at FROM served_meals WHERE dog_house_id = ? AND served_at <= ? GROUP BY dog_id) latest
+         ON served.dog_id = latest.dog_id AND served.served_at = latest.last_at
+       WHERE served.dog_house_id = ?`,
+      [dogHouseId, now, dogHouseId]
+    );
+    const lastByDog = new Map();
+    for (const meal of meals) if (!lastByDog.has(meal.dog_id)) lastByDog.set(meal.dog_id, meal);
+    const chosen = [...lastByDog.values()];
+    const items = new Map(chosen.map(meal => [meal.id, []]));
+    if (chosen.length) {
+      const rows = await connection.query(
+        `SELECT served_meal_id, food_name, grams FROM served_meal_items WHERE dog_house_id = ? AND served_meal_id IN (${chosen.map(() => '?').join(', ')})
+         ORDER BY served_meal_id, position`,
+        [dogHouseId, ...chosen.map(meal => meal.id)]
+      );
+      for (const row of rows) items.get(row.served_meal_id)?.push({ foodName: row.food_name, grams: Number(row.grams) });
+    }
+    return Object.fromEntries(chosen.map(meal => [meal.dog_id, {
+      servedAt: new Date(meal.served_at).toISOString(),
+      kcal: Number(meal.kcal),
+      items: items.get(meal.id) || []
+    }]));
+  } finally {
+    connection.release();
+  }
+}
+
 // Returns a dog's served bowls with their foods, from (inclusive) to (exclusive), oldest first.
 export async function getServedMeals(dogHouseId, dogId, from, to) {
   const connection = await getConnection();
