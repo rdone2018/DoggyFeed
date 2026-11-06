@@ -138,6 +138,7 @@ export const CZECH_TEXTS = {
   '{0} meals/day': '{0}× denně',
   '1 meal/day': '1× denně',
   'Protein': 'Bílkoviny',
+  'Picture': 'Obrázek',
   'Fat': 'Tuky',
   'Fiber': 'Vláknina',
   'Foods': 'Krmiva',

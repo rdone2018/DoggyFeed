@@ -134,6 +134,7 @@ export const POLISH_TEXTS = {
   '{0} meals/day': '{0}× dziennie',
   '1 meal/day': '1× dziennie',
   'Protein': 'Białko',
+  'Picture': 'Zdjęcie',
   'Fat': 'Tłuszcz',
   'Fiber': 'Błonnik',
   'Foods': 'Karmy',
