@@ -17,6 +17,7 @@ export const POLISH_TEXTS = {
   'Please rotate your phone': 'Obróć telefon',
   'DoggyFeed works best in landscape. Turn your phone sideways to continue.': 'DoggyFeed działa najlepiej w poziomie. Obróć telefon bokiem, aby kontynuować.',
   'If the screen does not turn, switch off the rotation lock.': 'Jeśli ekran się nie obraca, wyłącz blokadę obracania.',
+  'Continue without rotating': 'Kontynuuj bez obracania',
   'Backup all my data': 'Utwórz kopię wszystkich moich danych',
   'Download a ZIP file with all data of this dog house in one Excel file and its photos in folders': 'Pobierz plik ZIP ze wszystkimi danymi tej psiej budy w jednym pliku Excel i jej zdjęciami w folderach',
   'Preparing the backup…': 'Przygotowuję kopię zapasową…',

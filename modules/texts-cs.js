@@ -21,6 +21,7 @@ export const CZECH_TEXTS = {
   'Please rotate your phone': 'Otočte prosím telefon',
   'DoggyFeed works best in landscape. Turn your phone sideways to continue.': 'DoggyFeed funguje nejlépe na šířku. Pokračujte otočením telefonu na bok.',
   'If the screen does not turn, switch off the rotation lock.': 'Pokud se obrazovka neotočí, vypněte zámek otáčení.',
+  'Continue without rotating': 'Pokračovat bez otočení',
   'Backup all my data': 'Zálohovat všechna moje data',
   'Download a ZIP file with all data of this dog house in one Excel file and its photos in folders': 'Stáhnout soubor ZIP se všemi daty této psí boudy v jednom souboru Excel a s jejími fotkami ve složkách',
   'Preparing the backup…': 'Připravuji zálohu…',
