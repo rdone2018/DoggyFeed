@@ -258,10 +258,10 @@
         options.forEach(option=>{option.addEventListener('mousedown',e=>e.preventDefault());option.addEventListener('click',()=>choose(option));option.addEventListener('mousemove',()=>{if(!option.classList.contains('active'))highlight(option)})})}
       // Weight history: an entry is stored when a dog is added, when its weight or desired weight is saved
       // with a new value, or when it has no history yet.
-      let historyDogId='';
+      let historyDogId='all';
       const sameWeight=(a,b)=>(Number(a)||null)===(Number(b)||null);
       function recordWeight(dog,previous){const hasHistory=data.weightHistory.some(e=>e.dogId===dog.id);if(previous&&hasHistory&&sameWeight(previous.weight,dog.weight)&&sameWeight(previous.desiredWeight,dog.desiredWeight)&&sameWeight(previous.dailyEnergy,dog.dailyEnergy))return;data.weightHistory.push({id:`weight-${crypto.randomUUID()}`,dogId:dog.id,date:new Date().toISOString(),weight:Number(dog.weight),desiredWeight:Number(dog.desiredWeight)||null,dailyEnergy:Math.round(target(dog)*10)/10||null,dailyEnergyCustom:!!customEnergy(dog)})}
-      function openWeightHistory(dogId){historyDogId=dogId;closeModal();view='history';render();window.scrollTo(0,0)}
+      function openWeightHistory(dogId){historyDogId=data.dogs.length>1?HISTORY_ALL:dogId;closeModal();view='history';render();window.scrollTo(0,0)}
       const fmtDateTime=value=>new Date(value).toLocaleString(uiLocale(),{dateStyle:'medium',timeStyle:'short'});
       function niceStep(range){const raw=range/5,power=Math.pow(10,Math.floor(Math.log10(raw)));return [1,2,5,10].map(m=>m*power).find(s=>s>=raw)}
       function linePath(points,x,y){return points.map((p,i)=>`${i?'L':'M'}${x(p.date).toFixed(1)},${y(p.value).toFixed(1)}`).join('')}
