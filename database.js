@@ -475,7 +475,8 @@ function cleanState(state) {
           repeat: repeat === 'custom' && repeatDays < 1 ? 'none' : repeat, repeatDays: repeatDays >= 1 ? repeatDays : null
         };
       }) : null,
-    selectedDog: text(state.selectedDog, 255)
+    selectedDog: text(state.selectedDog, 255),
+    autoSync: state.autoSync === true
   };
 }
 
@@ -519,7 +520,8 @@ export async function replaceState(dogHouseId, rawState, baseRevision = null) {
     for (const table of ['saved_plan_items', 'saved_plans', 'weight_history', 'meal_items', 'dogs', 'foods']) {
       await connection.query(`DELETE FROM \`${table}\` WHERE dog_house_id = ?`, [dogHouseId]);
     }
-    await connection.query('DELETE FROM app_settings WHERE setting_key = ?', [houseKey(dogHouseId, 'selectedDog')]);
+    await connection.query('DELETE FROM app_settings WHERE setting_key IN (?, ?)',
+      [houseKey(dogHouseId, 'selectedDog'), houseKey(dogHouseId, 'autoSync')]);
 
     for (const dog of state.dogs) {
       await connection.query(
@@ -585,6 +587,13 @@ export async function replaceState(dogHouseId, rawState, baseRevision = null) {
       await connection.query(
         'INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?)',
         [houseKey(dogHouseId, 'selectedDog'), state.selectedDog]
+      );
+    }
+    // The Meal planner's Auto-sync switch is stored only while it is on.
+    if (state.autoSync) {
+      await connection.query(
+        "INSERT INTO app_settings (setting_key, setting_value) VALUES (?, '1')",
+        [houseKey(dogHouseId, 'autoSync')]
       );
     }
     await connection.query(
@@ -667,8 +676,8 @@ export async function readState(dogHouseId) {
       connection.query('SELECT * FROM meal_items WHERE dog_house_id = ? ORDER BY dog_id, position', house),
       connection.query('SELECT * FROM saved_plans WHERE dog_house_id = ? ORDER BY name', house),
       connection.query('SELECT * FROM saved_plan_items WHERE dog_house_id = ? ORDER BY plan_id, position', house),
-      connection.query('SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN (?, ?, ?)',
-        ['selectedDog', 'hasApplicationState', 'stateRevision'].map(key => houseKey(dogHouseId, key))),
+      connection.query('SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN (?, ?, ?, ?)',
+        ['selectedDog', 'autoSync', 'hasApplicationState', 'stateRevision'].map(key => houseKey(dogHouseId, key))),
       connection.query('SELECT * FROM weight_history WHERE dog_house_id = ? ORDER BY recorded_at', house),
       connection.query('SELECT * FROM calendar_events WHERE dog_house_id = ? ORDER BY `starts_at`', house)
     ]);
@@ -710,6 +719,7 @@ export async function readState(dogHouseId) {
         reminder: row.reminder_kind || '', reminderDays: row.reminder_days === null || row.reminder_days === undefined ? '' : Number(row.reminder_days)
       })),
       selectedDog: settings.find(setting => setting.setting_key === 'selectedDog')?.setting_value || '',
+      autoSync: settings.find(setting => setting.setting_key === 'autoSync')?.setting_value === '1',
       revision: Number(settings.find(setting => setting.setting_key === 'stateRevision')?.setting_value) || 0
     };
   } finally {
