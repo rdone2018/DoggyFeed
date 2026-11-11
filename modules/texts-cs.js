@@ -175,7 +175,7 @@ export const CZECH_TEXTS = {
   'Save this bowl to the food served history': 'Uložit tuto misku do historie podaných misek',
   "Record {0}'s bowl as served": 'Zaznamenat misku – {0} jako podanou',
   'Bowl served': 'Miska podána',
-  'Bowl served automatically in {0} s': 'Miska bude automaticky podána za {0} s',
+  'Bowl served automatically in {0}': 'Miska bude automaticky podána za {0}',
   'Last bowl served': 'Naposledy podaná miska',
   'Add foods and enter the amount served.': 'Přidejte krmiva a zadejte podané množství.',
   'Automatic values added for energy references are rough estimates based on weight and activity. Individual needs vary. Ask your veterinarian about a complete diet and feeding amounts.': 'Automaticky doplněné hodnoty energetické potřeby jsou hrubé odhady podle hmotnosti a aktivity. Individuální potřeby se liší. Na kompletní stravu a dávky krmení se zeptejte veterináře.',
