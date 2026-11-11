@@ -170,6 +170,8 @@ export const POLISH_TEXTS = {
   'Sync bowl': 'Synchronizuj miskę',
   'Auto-sync On': 'Auto-synchronizacja wł.',
   'Auto-sync Off': 'Auto-synchronizacja wył.',
+  'Added {0} to all bowls': 'Dodano {0} do wszystkich misek',
+  'Meal plan loaded into all bowls': 'Plan żywienia wczytano do wszystkich misek',
   'When on, adding or removing a food, Clear bowl, Save bowl and Bowl served apply to all bowls': 'Gdy włączone, dodanie lub usunięcie karmy, Opróżnij miskę, Zapisz miskę i Miska podana dotyczą wszystkich misek',
   'Auto-sync is on: changes apply to all bowls': 'Auto-synchronizacja jest włączona: zmiany dotyczą wszystkich misek',
   'Auto-sync is off': 'Auto-synchronizacja jest wyłączona',

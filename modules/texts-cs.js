@@ -174,6 +174,8 @@ export const CZECH_TEXTS = {
   'Sync bowl': 'Synchronizovat misku',
   'Auto-sync On': 'Auto-synchronizace zap.',
   'Auto-sync Off': 'Auto-synchronizace vyp.',
+  'Added {0} to all bowls': '{0} přidáno do všech misek',
+  'Meal plan loaded into all bowls': 'Plán krmení načten do všech misek',
   'When on, adding or removing a food, Clear bowl, Save bowl and Bowl served apply to all bowls': 'Když je zapnuto, přidání nebo odebrání krmiva, Vyprázdnit misku, Uložit misku a Miska podána platí pro všechny misky',
   'Auto-sync is on: changes apply to all bowls': 'Auto-synchronizace je zapnutá: změny platí pro všechny misky',
   'Auto-sync is off': 'Auto-synchronizace je vypnutá',
