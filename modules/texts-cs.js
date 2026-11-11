@@ -177,7 +177,7 @@ export const CZECH_TEXTS = {
   'Bowl served': 'Miska podána',
   'Last bowl served': 'Naposledy podaná miska',
   'Add foods and enter the amount served.': 'Přidejte krmiva a zadejte podané množství.',
-  'Energy references are rough estimates based on weight and activity. Individual needs vary. Ask your veterinarian about a complete diet and feeding amounts.': 'Energetické potřeby jsou hrubé odhady podle hmotnosti a aktivity. Individuální potřeby se liší. Na kompletní stravu a dávky krmení se zeptejte veterináře.',
+  'Automatic values added for energy references are rough estimates based on weight and activity. Individual needs vary. Ask your veterinarian about a complete diet and feeding amounts.': 'Automaticky doplněné hodnoty energetické potřeby jsou hrubé odhady podle hmotnosti a aktivity. Individuální potřeby se liší. Na kompletní stravu a dávky krmení se zeptejte veterináře.',
   "Each dog's plans sit under its bowl. Drag a plan onto the bowl to add its foods, double-click it to load it into the bowl, or use the button on the tile.": 'Plány každého psa jsou pod jeho miskou. Přetažením plánu na misku přidáte jeho krmiva, dvojklikem ho do misky načtete, nebo použijte tlačítko na dlaždici.',
   'Saved plan {0}': 'Uložený plán {0}',
   'Delete saved plan {0}': 'Smazat uložený plán {0}',
