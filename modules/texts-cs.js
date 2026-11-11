@@ -460,6 +460,7 @@ export const CZECH_TEXTS = {
   'Unable to delete: {0}': 'Nelze smazat: {0}',
   'None of the foods in this bowl are in the food library any more': 'Žádné z krmiv této misky už není v knihovně krmiv',
   "{0}: {1} loaded into {2}'s bowl": '{0}: {1} načteno do misky – {2}',
+  '{0}: {1} loaded into all bowls': '{0}: {1} načteno do všech misek',
   '1 food is no longer in the library': '1 krmivo už není v knihovně',
   '{0} foods are no longer in the library': 'Krmiva, která už nejsou v knihovně: {0}',
   'Delete the bowl served {0} ({1}, {2} kcal) from the history?': 'Smazat misku podanou {0} ({1}, {2} kcal) z historie?',
